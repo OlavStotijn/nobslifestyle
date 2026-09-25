@@ -17,11 +17,12 @@ import {
   setProgressSummary,
   startSession,
 } from "../lib/sessions";
-import { computeSessionProgress } from "../lib/progress";
+import { computeSessionProgress, getExerciseHistory, listPersonalRecords } from "../lib/progress";
 
 export const sessionsRoute = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
 
 sessionsRoute.use("/api/sessions*", requireAuth);
+sessionsRoute.use("/api/progress/*", requireAuth);
 
 async function sessionWithExercises(env: Env, userId: number, id: number) {
   const session = await getSessionOwned(env, userId, id);
@@ -155,4 +156,14 @@ sessionsRoute.post("/api/sessions/:id/save-as-schema", async (c) => {
 
   const schemaId = await saveSessionAsSchema(c.env, c.get("userId"), session.id, body.name);
   return c.json({ schemaId }, 201);
+});
+
+sessionsRoute.get("/api/progress/prs", async (c) => {
+  const records = await listPersonalRecords(c.env, c.get("userId"));
+  return c.json({ records });
+});
+
+sessionsRoute.get("/api/progress/exercise/:exerciseId/history", async (c) => {
+  const history = await getExerciseHistory(c.env, c.get("userId"), Number(c.req.param("exerciseId")));
+  return c.json({ history });
 });

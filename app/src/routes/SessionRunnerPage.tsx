@@ -12,7 +12,9 @@ import { WeightStepper } from "../components/WeightStepper";
 import { BottomSheet } from "../components/BottomSheet";
 import { ProgressBadge } from "../components/ProgressBadge";
 import { PostComposer } from "../components/PostComposer";
+import { RestTimer } from "../components/RestTimer";
 import { useUnits } from "../lib/useUnits";
+import { useAuth } from "../context/AuthContext";
 
 function lastLoggedWeight(exercise: SessionExercise): number {
   if (exercise.sets.length === 0) return exercise.targetWeightKg;
@@ -31,9 +33,12 @@ function ExerciseRunner({
   const addSet = useAddSet(sessionId);
   const applyWeight = useApplyWeight(sessionId);
   const { formatWeight, weightLabel } = useUnits();
+  const { user } = useAuth();
   const [reps, setReps] = useState(exercise.targetRepsMin);
   const [weight, setWeight] = useState(lastLoggedWeight(exercise));
   const [showWeightPrompt, setShowWeightPrompt] = useState(false);
+  const [restKey, setRestKey] = useState(0);
+  const [resting, setResting] = useState(false);
 
   const alreadyResolved = exercise.sets.some((s) => s.weightChangeApplied !== "none");
   const setsLogged = exercise.sets.length;
@@ -41,6 +46,10 @@ function ExerciseRunner({
   async function logSet() {
     await addSet.mutateAsync({ sessionExerciseId: exercise.id, reps, weightKg: weight });
     const justFinishedExercise = setsLogged + 1 >= exercise.targetSets;
+    if (!justFinishedExercise) {
+      setRestKey((k) => k + 1);
+      setResting(true);
+    }
     if (!alreadyResolved && weight !== exercise.targetWeightKg) {
       setShowWeightPrompt(true);
     } else if (justFinishedExercise) {
@@ -101,6 +110,12 @@ function ExerciseRunner({
       >
         {addSet.isPending ? "Logging…" : "Log set"}
       </button>
+
+      {resting && (
+        <div className="mt-4">
+          <RestTimer key={restKey} seconds={user?.restTimerSeconds ?? 90} onDone={() => setResting(false)} />
+        </div>
+      )}
 
       {exercise.sets.length > 0 && (
         <div className="mt-4 flex flex-col gap-1">

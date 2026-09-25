@@ -2,9 +2,15 @@ import { lazy, Suspense, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
 import {
+  useAddFavoriteFood,
   useBarcodeLookup,
   useCreateFoodItem,
   useCreateFoodLog,
+  useFavoriteFoods,
+  useLogSavedMeal,
+  useRecentFoods,
+  useRemoveFavoriteFood,
+  useSavedMeals,
   useScanLabel,
   useSearchFood,
   todayLocalDate,
@@ -19,10 +25,11 @@ import { useDebounced } from "../hooks/useDebounced";
 // lazy-loaded instead of bloating every page's initial bundle.
 const BarcodeScanner = lazy(() => import("../components/BarcodeScanner").then((m) => ({ default: m.BarcodeScanner })));
 
-type Tab = "search" | "scan" | "photo";
+type Tab = "quick" | "search" | "scan" | "photo";
 
 function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   const tabs: { key: Tab; label: string }[] = [
+    { key: "quick", label: "Quick" },
     { key: "search", label: "Search" },
     { key: "scan", label: "Scan" },
     { key: "photo", label: "Photo" },
@@ -58,6 +65,72 @@ function SearchResultRow({ item, onSelect }: { item: FoodItem; onSelect: (item: 
       </div>
       <span className="ml-3 shrink-0 text-sm text-ink-muted">{Math.round(item.caloriesPer100g)} kcal/100g</span>
     </button>
+  );
+}
+
+function QuickTab({ onSelect, onLoggedSavedMeal }: { onSelect: (item: FoodItem) => void; onLoggedSavedMeal: () => void }) {
+  const { data: favorites, isLoading: favoritesLoading } = useFavoriteFoods();
+  const { data: recent, isLoading: recentLoading } = useRecentFoods();
+  const { data: savedMeals, isLoading: mealsLoading } = useSavedMeals();
+  const date = todayLocalDate();
+  const logSavedMeal = useLogSavedMeal(date);
+
+  const loading = favoritesLoading || recentLoading || mealsLoading;
+  const nothingSaved = !loading && !favorites?.length && !recent?.length && !savedMeals?.length;
+
+  return (
+    <div className="mt-4 flex flex-1 flex-col gap-6 overflow-y-auto">
+      {loading && <p className="text-ink-muted">Loading…</p>}
+      {nothingSaved && <p className="text-ink-muted">Log a few things and they'll show up here for quick re-adding.</p>}
+
+      {savedMeals && savedMeals.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">Saved meals</h2>
+          <div className="mt-2 flex flex-col gap-2">
+            {savedMeals.map((meal) => (
+              <button
+                key={meal.id}
+                type="button"
+                disabled={logSavedMeal.isPending}
+                onClick={async () => {
+                  await logSavedMeal.mutateAsync(meal.id);
+                  onLoggedSavedMeal();
+                }}
+                className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 text-left disabled:opacity-50"
+              >
+                <div>
+                  <p className="font-medium text-ink">{meal.name}</p>
+                  <p className="text-sm text-ink-muted">{meal.items.length} items</p>
+                </div>
+                <span className="text-sm font-semibold text-accent">Log all</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {favorites && favorites.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">Favorites</h2>
+          <div className="mt-2 flex flex-col gap-2">
+            {favorites.map((item) => (
+              <SearchResultRow key={item.id} item={item} onSelect={onSelect} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {recent && recent.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">Recent</h2>
+          <div className="mt-2 flex flex-col gap-2">
+            {recent.map((item) => (
+              <SearchResultRow key={item.id} item={item} onSelect={onSelect} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -289,6 +362,10 @@ function QuantityStep({ item, source, onBack, onAdded }: { item: FoodItem; sourc
   const date = todayLocalDate();
   const [quantity, setQuantity] = useState(item.servingSizeG ?? 100);
   const createMutation = useCreateFoodLog(date);
+  const { data: favorites } = useFavoriteFoods();
+  const isFavorite = favorites?.some((f) => f.id === item.id) ?? false;
+  const addFavorite = useAddFavoriteFood();
+  const removeFavorite = useRemoveFavoriteFood();
 
   const factor = quantity / 100;
   const calories = Math.round(item.caloriesPer100g * factor);
@@ -307,8 +384,20 @@ function QuantityStep({ item, source, onBack, onAdded }: { item: FoodItem; sourc
         ← Back
       </button>
 
-      <h1 className="mt-4 text-2xl font-bold text-ink">{item.name}</h1>
-      {item.brand && <p className="text-ink-muted">{item.brand}</p>}
+      <div className="mt-4 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-ink">{item.name}</h1>
+          {item.brand && <p className="text-ink-muted">{item.brand}</p>}
+        </div>
+        <button
+          type="button"
+          onClick={() => (isFavorite ? removeFavorite.mutate(item.id) : addFavorite.mutate(item.id))}
+          aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+          className={`shrink-0 text-2xl ${isFavorite ? "text-accent" : "text-ink-muted"}`}
+        >
+          {isFavorite ? "★" : "☆"}
+        </button>
+      </div>
 
       <div className="mt-6 flex items-center justify-center gap-4">
         <button
@@ -365,7 +454,7 @@ function QuantityStep({ item, source, onBack, onAdded }: { item: FoodItem; sourc
 
 export function AddFoodPage() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>("search");
+  const [tab, setTab] = useState<Tab>("quick");
   const [selected, setSelected] = useState<{ item: FoodItem; source: FoodLogSource } | null>(null);
   const [ocrPending, setOcrPending] = useState<{ result: OcrResult; imageR2Key: string } | null>(null);
 
@@ -405,6 +494,9 @@ export function AddFoodPage() {
 
       <TabBar tab={tab} onChange={setTab} />
 
+      {tab === "quick" && (
+        <QuickTab onSelect={(item) => setSelected({ item, source: "search" })} onLoggedSavedMeal={() => navigate("/food")} />
+      )}
       {tab === "search" && <SearchTab onSelect={(item) => setSelected({ item, source: "search" })} />}
       {tab === "scan" && <ScanTab onSelect={(item) => setSelected({ item, source: "barcode" })} />}
       {tab === "photo" && <PhotoTab onExtracted={(result, imageR2Key) => setOcrPending({ result, imageR2Key })} />}

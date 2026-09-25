@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useSchemas } from "../api/hooks/useWorkouts";
 import { useSessions, useStartSession, type Badge } from "../api/hooks/useSessions";
+import { useTodaysWorkout } from "../api/hooks/usePrograms";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { BottomSheet } from "../components/BottomSheet";
 import { ApiError } from "../api/client";
@@ -111,16 +112,36 @@ function StartSessionSheet({ onClose }: { onClose: () => void }) {
 export function WorkoutsPage() {
   const { data: schemas, isLoading } = useSchemas();
   const { data: sessions } = useSessions();
+  const { data: todaysWorkout } = useTodaysWorkout();
   const finishedSessions = (sessions ?? []).filter((s) => s.finishedAt);
   const [chooserOpen, setChooserOpen] = useState(false);
+  const startSession = useStartSession();
+  const navigate = useNavigate();
 
   return (
     <div className="flex min-h-full flex-col bg-bg px-6 py-8">
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-between">
+        <Link to="/programs" className="text-sm font-semibold text-accent">
+          Programs
+        </Link>
         <ThemeToggle />
       </div>
 
       <h1 className="mt-4 text-2xl font-bold text-ink">Your workouts</h1>
+
+      {todaysWorkout && (
+        <button
+          type="button"
+          onClick={async () => {
+            const session = await startSession.mutateAsync(todaysWorkout.schemaId);
+            navigate(`/sessions/${session.id}`);
+          }}
+          className="mt-4 rounded-2xl border border-accent/30 bg-accent-soft px-4 py-4 text-left"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide text-accent">Today's workout</p>
+          <p className="mt-1 text-lg font-bold text-ink">{todaysWorkout.schemaName}</p>
+        </button>
+      )}
 
       <button
         type="button"

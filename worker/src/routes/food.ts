@@ -3,7 +3,15 @@ import type { Env } from "../types";
 import type { AuthVariables } from "../middleware/requireAuth";
 import { requireAuth } from "../middleware/requireAuth";
 import { searchOpenFoodFacts, lookupOpenFoodFactsBarcode } from "../lib/openFoodFacts";
-import { publicFoodItem, upsertFoodItem, getFoodItemById } from "../lib/foodItems";
+import {
+  publicFoodItem,
+  upsertFoodItem,
+  getFoodItemById,
+  listFavoriteFoodItems,
+  addFavoriteFoodItem,
+  removeFavoriteFoodItem,
+  listRecentFoodItems,
+} from "../lib/foodItems";
 import {
   createFoodLog,
   deleteFoodLog,
@@ -15,6 +23,15 @@ import {
 import type { MealType } from "../lib/time";
 import { extractNutritionFromLabel } from "../lib/ocr";
 import { getBurnedKcalForDate } from "../lib/cardioSessions";
+import {
+  createSavedMeal,
+  deleteSavedMeal,
+  getSavedMealOwned,
+  listSavedMealItems,
+  listSavedMeals,
+  logSavedMeal,
+  publicSavedMeal,
+} from "../lib/savedMeals";
 
 export const foodRoute = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
 
@@ -183,4 +200,64 @@ foodRoute.delete("/api/food/logs/:id", async (c) => {
   const deleted = await deleteFoodLog(c.env, c.get("userId"), id);
   if (!deleted) return c.json({ error: "Not found." }, 404);
   return c.json({ ok: true });
+});
+
+foodRoute.get("/api/food/favorites", async (c) => {
+  const items = await listFavoriteFoodItems(c.env, c.get("userId"));
+  return c.json({ items: items.map(publicFoodItem) });
+});
+
+foodRoute.post("/api/food/favorites/:foodItemId", async (c) => {
+  await addFavoriteFoodItem(c.env, c.get("userId"), Number(c.req.param("foodItemId")));
+  return c.json({ ok: true });
+});
+
+foodRoute.delete("/api/food/favorites/:foodItemId", async (c) => {
+  await removeFavoriteFoodItem(c.env, c.get("userId"), Number(c.req.param("foodItemId")));
+  return c.json({ ok: true });
+});
+
+foodRoute.get("/api/food/recent", async (c) => {
+  const items = await listRecentFoodItems(c.env, c.get("userId"));
+  return c.json({ items: items.map(publicFoodItem) });
+});
+
+async function savedMealWithItems(env: Env, userId: number, id: number) {
+  const meal = await getSavedMealOwned(env, userId, id);
+  if (!meal) return null;
+  return publicSavedMeal(meal, await listSavedMealItems(env, id));
+}
+
+foodRoute.get("/api/food/saved-meals", async (c) => {
+  const meals = await listSavedMeals(c.env, c.get("userId"));
+  const withItems = await Promise.all(meals.map((m) => savedMealWithItems(c.env, c.get("userId"), m.id)));
+  return c.json({ meals: withItems });
+});
+
+interface CreateSavedMealBody {
+  name: string;
+  items: { foodItemId: number; quantityG: number }[];
+}
+
+foodRoute.post("/api/food/saved-meals", async (c) => {
+  const body = await c.req.json<Partial<CreateSavedMealBody>>().catch(() => null);
+  if (!body?.name || !Array.isArray(body.items) || body.items.length === 0) {
+    return c.json({ error: "name and at least one item are required." }, 422);
+  }
+  const meal = await createSavedMeal(c.env, c.get("userId"), { name: body.name, items: body.items });
+  return c.json({ meal: await savedMealWithItems(c.env, c.get("userId"), meal.id) }, 201);
+});
+
+foodRoute.delete("/api/food/saved-meals/:id", async (c) => {
+  const ok = await deleteSavedMeal(c.env, c.get("userId"), Number(c.req.param("id")));
+  if (!ok) return c.json({ error: "Not found." }, 404);
+  return c.json({ ok: true });
+});
+
+foodRoute.post("/api/food/saved-meals/:id/log", async (c) => {
+  const mealId = Number(c.req.param("id"));
+  const meal = await getSavedMealOwned(c.env, c.get("userId"), mealId);
+  if (!meal) return c.json({ error: "Not found." }, 404);
+  const logs = await logSavedMeal(c.env, c.get("userId"), mealId);
+  return c.json({ logs: logs.map(publicFoodLog) }, 201);
 });

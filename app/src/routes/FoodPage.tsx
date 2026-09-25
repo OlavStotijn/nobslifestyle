@@ -1,6 +1,14 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { useDailySummary, useDeleteFoodLog, useFoodLogs, todayLocalDate, type FoodLog, type MealType } from "../api/hooks/useFoodLogs";
+import {
+  useCreateSavedMeal,
+  useDailySummary,
+  useDeleteFoodLog,
+  useFoodLogs,
+  todayLocalDate,
+  type FoodLog,
+  type MealType,
+} from "../api/hooks/useFoodLogs";
 import { useCardioSessionsForDate, type CardioSession } from "../api/hooks/useCardioSessions";
 import { useNutritionProfile } from "../api/hooks/useNutritionProfile";
 import { ThemeToggle } from "../components/ThemeToggle";
@@ -53,6 +61,16 @@ export function FoodPage() {
   const { data: activities } = useCardioSessionsForDate(date);
   const { data: profile } = useNutritionProfile();
   const deleteMutation = useDeleteFoodLog(date);
+  const createSavedMeal = useCreateSavedMeal();
+
+  async function saveMealAs(mealLogs: FoodLog[]) {
+    const name = window.prompt("Name this meal:");
+    if (!name?.trim()) return;
+    await createSavedMeal.mutateAsync({
+      name: name.trim(),
+      items: mealLogs.map((l) => ({ foodItemId: l.foodItemId, quantityG: l.quantityG })),
+    });
+  }
 
   const baseTarget = profile?.targetKcal ?? 0;
   const consumed = summary?.calories ?? 0;
@@ -105,7 +123,18 @@ export function FoodPage() {
         {!logsLoading &&
           grouped.map((meal) => (
             <div key={meal.key}>
-              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-ink-muted">{meal.label}</h2>
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">{meal.label}</h2>
+                {meal.logs.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => saveMealAs(meal.logs)}
+                    className="text-xs font-semibold text-accent"
+                  >
+                    Save as meal
+                  </button>
+                )}
+              </div>
               {meal.logs.length === 0 ? (
                 <p className="text-sm text-ink-muted">{t("food.nothingLoggedYet")}</p>
               ) : (

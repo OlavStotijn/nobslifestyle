@@ -121,3 +121,38 @@ export async function upsertFoodItem(env: Env, input: FoodItemInput): Promise<Fo
   const id = result.meta.last_row_id as number;
   return (await getFoodItemById(env, id))!;
 }
+
+export async function listFavoriteFoodItems(env: Env, userId: number): Promise<FoodItemRow[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT fi.* FROM food_favorites ff
+     JOIN food_items fi ON fi.id = ff.food_item_id
+     WHERE ff.user_id = ? ORDER BY ff.created_at DESC`
+  )
+    .bind(userId)
+    .all<FoodItemRow>();
+  return results;
+}
+
+export async function addFavoriteFoodItem(env: Env, userId: number, foodItemId: number): Promise<void> {
+  await env.DB.prepare("INSERT OR IGNORE INTO food_favorites (user_id, food_item_id) VALUES (?, ?)").bind(userId, foodItemId).run();
+}
+
+export async function removeFavoriteFoodItem(env: Env, userId: number, foodItemId: number): Promise<void> {
+  await env.DB.prepare("DELETE FROM food_favorites WHERE user_id = ? AND food_item_id = ?").bind(userId, foodItemId).run();
+}
+
+// Most recently logged distinct food items — a quick-add list separate from
+// favorites (which are deliberately starred).
+export async function listRecentFoodItems(env: Env, userId: number, limit = 10): Promise<FoodItemRow[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT fi.*, MAX(fl.logged_at) AS last_logged_at FROM food_logs fl
+     JOIN food_items fi ON fi.id = fl.food_item_id
+     WHERE fl.user_id = ?
+     GROUP BY fl.food_item_id
+     ORDER BY last_logged_at DESC
+     LIMIT ?`
+  )
+    .bind(userId, limit)
+    .all<FoodItemRow>();
+  return results;
+}

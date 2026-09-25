@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useFeed, useFriendRequests, useToggleLike, type FeedPost } from "../api/hooks/useSocial";
+import { useAddComment, useComments, useFeed, useFriendRequests, useToggleLike, type FeedPost } from "../api/hooks/useSocial";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { SlideCarousel } from "../components/SlideCarousel";
+import { NotificationBell } from "../components/NotificationBell";
 import { formatDuration } from "../lib/geo";
 import { useUnits } from "../lib/useUnits";
 
@@ -83,8 +85,53 @@ function StatsSlide({ post }: { post: FeedPost }) {
   );
 }
 
+function CommentsSection({ postId }: { postId: number }) {
+  const { data: comments, isLoading } = useComments(postId, true);
+  const addComment = useAddComment(postId);
+  const [body, setBody] = useState("");
+
+  async function submit() {
+    if (!body.trim()) return;
+    await addComment.mutateAsync(body.trim());
+    setBody("");
+  }
+
+  return (
+    <div className="border-t border-border px-4 py-3">
+      {isLoading && <p className="text-sm text-ink-muted">Loading comments…</p>}
+      {comments && comments.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {comments.map((c) => (
+            <p key={c.id} className="text-sm text-ink">
+              <span className="font-semibold">{c.user.displayName}</span> <span className="text-ink-muted">{c.body}</span>
+            </p>
+          ))}
+        </div>
+      )}
+      <div className="mt-2 flex gap-2">
+        <input
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+          placeholder="Add a comment…"
+          className="flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+        />
+        <button
+          type="button"
+          onClick={submit}
+          disabled={addComment.isPending || !body.trim()}
+          className="text-sm font-semibold text-accent disabled:opacity-50"
+        >
+          Post
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function PostCard({ post }: { post: FeedPost }) {
   const toggleLike = useToggleLike();
+  const [showComments, setShowComments] = useState(false);
 
   const statsSlide = <StatsSlide post={post} />;
   const slides = post.photoUrl
@@ -100,7 +147,7 @@ function PostCard({ post }: { post: FeedPost }) {
     <div className="overflow-hidden rounded-2xl border border-border bg-surface">
       <SlideCarousel slides={slides} />
 
-      <div className="px-4 pb-4">
+      <div className="flex items-center gap-4 px-4 pb-4">
         <button
           type="button"
           onClick={() => toggleLike.mutate({ postId: post.postId, liked: post.likedByMe })}
@@ -108,7 +155,16 @@ function PostCard({ post }: { post: FeedPost }) {
         >
           {post.likedByMe ? "♥" : "♡"} {post.likeCount > 0 ? post.likeCount : ""} {post.likeCount === 1 ? "like" : "likes"}
         </button>
+        <button
+          type="button"
+          onClick={() => setShowComments((s) => !s)}
+          className="text-sm font-medium text-ink-muted"
+        >
+          💬 Comments
+        </button>
       </div>
+
+      {showComments && <CommentsSection postId={post.postId} />}
     </div>
   );
 }
@@ -133,6 +189,7 @@ export function FeedPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-ink">Feed</h1>
         <div className="flex items-center gap-3">
+          <NotificationBell />
           <Link to="/friends" className="relative text-ink" aria-label="Friends">
             <FriendsIcon />
             {pendingCount > 0 && (

@@ -117,3 +117,72 @@ export async function computeSessionProgress(env: Env, session: SessionRow): Pro
 
   return { perExercise, sessionBadge: majorityBadge(perExercise.map((e) => e.badge)) };
 }
+
+export interface PersonalRecord {
+  exerciseId: number;
+  exerciseName: string;
+  bestWeightKg: number;
+  bestReps: number;
+  achievedAt: string;
+  sessionId: number;
+}
+
+// All-time PR per exercise the user has ever logged (heaviest single set,
+// ties broken by more reps) — a dedicated overview, separate from the
+// per-session badges computed above.
+export async function listPersonalRecords(env: Env, userId: number): Promise<PersonalRecord[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT
+       se.exercise_id AS exerciseId, e.name AS exerciseName,
+       ss.weight_kg AS bestWeightKg, ss.reps AS bestReps,
+       ts.started_at AS achievedAt, ts.id AS sessionId
+     FROM session_sets ss
+     JOIN session_exercises se ON se.id = ss.session_exercise_id
+     JOIN training_sessions ts ON ts.id = se.session_id
+     JOIN exercises e ON e.id = se.exercise_id
+     WHERE ts.user_id = ? AND ts.finished_at IS NOT NULL
+       AND ss.weight_kg = (
+         SELECT MAX(ss2.weight_kg) FROM session_sets ss2
+         JOIN session_exercises se2 ON se2.id = ss2.session_exercise_id
+         JOIN training_sessions ts2 ON ts2.id = se2.session_id
+         WHERE ts2.user_id = ts.user_id AND se2.exercise_id = se.exercise_id AND ts2.finished_at IS NOT NULL
+       )
+     GROUP BY se.exercise_id
+     ORDER BY e.name COLLATE NOCASE ASC`
+  )
+    .bind(userId)
+    .all<PersonalRecord>();
+  return results;
+}
+
+export interface ExerciseHistoryPoint {
+  sessionId: number;
+  startedAt: string;
+  bestWeightKg: number;
+  bestReps: number;
+  volumeKg: number;
+}
+
+// One point per past session containing this exercise: best set (weight,
+// reps) and total volume (Σ reps×weight) — feeds the progress chart.
+export async function getExerciseHistory(env: Env, userId: number, exerciseId: number, limit = 60): Promise<ExerciseHistoryPoint[]> {
+  const { results } = await env.DB.prepare(
+    `SELECT
+       ts.id AS sessionId, ts.started_at AS startedAt,
+       MAX(ss.weight_kg) AS bestWeightKg,
+       SUM(ss.reps * ss.weight_kg) AS volumeKg,
+       (SELECT ss3.reps FROM session_sets ss3
+          WHERE ss3.session_exercise_id = se.id
+          ORDER BY ss3.weight_kg DESC, ss3.reps DESC LIMIT 1) AS bestReps
+     FROM session_exercises se
+     JOIN training_sessions ts ON ts.id = se.session_id
+     JOIN session_sets ss ON ss.session_exercise_id = se.id
+     WHERE ts.user_id = ? AND se.exercise_id = ? AND ts.finished_at IS NOT NULL
+     GROUP BY se.id
+     ORDER BY ts.started_at ASC
+     LIMIT ?`
+  )
+    .bind(userId, exerciseId, limit)
+    .all<ExerciseHistoryPoint>();
+  return results;
+}

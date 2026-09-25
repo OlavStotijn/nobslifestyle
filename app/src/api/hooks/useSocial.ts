@@ -132,3 +132,34 @@ export function useToggleLike() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["feed"] }),
   });
 }
+
+export interface Comment {
+  id: number;
+  body: string;
+  createdAt: string;
+  user: PublicUser;
+}
+
+export function useComments(postId: number, enabled: boolean) {
+  return useQuery({
+    queryKey: ["comments", postId],
+    queryFn: () => api.get<{ comments: Comment[] }>(`/posts/${postId}/comments`).then((r) => r.comments),
+    enabled,
+  });
+}
+
+export function useAddComment(postId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: string) => api.post<{ comment: Comment }>(`/posts/${postId}/comments`, { body }).then((r) => r.comment),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["comments", postId] }),
+  });
+}
+
+export function useDeleteComment(postId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (commentId: number) => api.delete(`/posts/${postId}/comments/${commentId}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["comments", postId] }),
+  });
+}

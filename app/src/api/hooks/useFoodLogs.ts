@@ -139,3 +139,81 @@ export function useDeleteFoodLog(date: string) {
     },
   });
 }
+
+export function useFavoriteFoods() {
+  return useQuery({
+    queryKey: ["food-favorites"],
+    queryFn: () => api.get<{ items: FoodItem[] }>("/food/favorites").then((r) => r.items),
+  });
+}
+
+export function useRecentFoods() {
+  return useQuery({
+    queryKey: ["food-recent"],
+    queryFn: () => api.get<{ items: FoodItem[] }>("/food/recent").then((r) => r.items),
+  });
+}
+
+export function useAddFavoriteFood() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (foodItemId: number) => api.post(`/food/favorites/${foodItemId}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["food-favorites"] }),
+  });
+}
+
+export function useRemoveFavoriteFood() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (foodItemId: number) => api.delete(`/food/favorites/${foodItemId}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["food-favorites"] }),
+  });
+}
+
+export interface SavedMealItem {
+  id: number;
+  foodItemId: number;
+  foodItemName: string;
+  quantityG: number;
+}
+
+export interface SavedMeal {
+  id: number;
+  name: string;
+  items: SavedMealItem[];
+}
+
+export function useSavedMeals() {
+  return useQuery({
+    queryKey: ["saved-meals"],
+    queryFn: () => api.get<{ meals: SavedMeal[] }>("/food/saved-meals").then((r) => r.meals),
+  });
+}
+
+export function useCreateSavedMeal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { name: string; items: { foodItemId: number; quantityG: number }[] }) =>
+      api.post<{ meal: SavedMeal }>("/food/saved-meals", input).then((r) => r.meal),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["saved-meals"] }),
+  });
+}
+
+export function useDeleteSavedMeal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.delete(`/food/saved-meals/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["saved-meals"] }),
+  });
+}
+
+export function useLogSavedMeal(date: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.post<{ logs: FoodLog[] }>(`/food/saved-meals/${id}/log`).then((r) => r.logs),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["food-logs", date] });
+      queryClient.invalidateQueries({ queryKey: ["food-summary", date] });
+    },
+  });
+}

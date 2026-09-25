@@ -23,6 +23,8 @@ import { FeedPage } from "./routes/FeedPage";
 import { ProfilePage } from "./routes/ProfilePage";
 import { SettingsPage } from "./routes/SettingsPage";
 import { AddProgressPhotoPage } from "./routes/AddProgressPhotoPage";
+import { PersonalRecordsPage } from "./routes/PersonalRecordsPage";
+import { ProgramsPage } from "./routes/ProgramsPage";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { AppLayout } from "./components/layout/AppLayout";
 import { useSyncListener } from "./api/hooks/useSyncListener";
@@ -53,6 +55,8 @@ export default function App() {
         <Route path="/friends/:id" element={<FriendProfilePage />} />
         <Route path="/profile/settings" element={<SettingsPage />} />
         <Route path="/profile/progress-photos/add" element={<AddProgressPhotoPage />} />
+        <Route path="/progress/prs" element={<PersonalRecordsPage />} />
+        <Route path="/programs" element={<ProgramsPage />} />
 
         <Route element={<AppLayout />}>
           <Route path="/summary" element={<SummaryPage />} />

@@ -48,3 +48,50 @@ registerRoute(
   },
   "POST"
 );
+
+// Push messages carry no payload (see worker/src/lib/webPush.ts) — they're
+// just a wake-up signal. The real title/body/link comes from a same-origin
+// fetch here, which carries the session cookie automatically.
+self.addEventListener("push", (event) => {
+  event.waitUntil(
+    (async () => {
+      let title = "NoBSLifestyle";
+      let body = "You have new activity.";
+      let link = "/";
+      try {
+        const res = await fetch("/api/notifications/latest", { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          title = data.title ?? title;
+          body = data.body ?? body;
+          link = data.link ?? link;
+        }
+      } catch {
+        // fall back to the generic text above
+      }
+      await self.registration.showNotification(title, {
+        body,
+        icon: "/icons/icon-192.png",
+        badge: "/icons/icon-192.png",
+        data: { link },
+      });
+    })()
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const link = (event.notification.data as { link?: string } | undefined)?.link ?? "/";
+  event.waitUntil(
+    (async () => {
+      const clients = await self.clients.matchAll({ type: "window" });
+      const existing = clients.find((c) => "focus" in c);
+      if (existing) {
+        existing.focus();
+        existing.postMessage({ type: "navigate", link });
+      } else {
+        await self.clients.openWindow(link);
+      }
+    })()
+  );
+});

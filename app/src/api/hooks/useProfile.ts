@@ -8,6 +8,7 @@ interface UpdateProfileInput {
   weightUnit?: "kg" | "lb";
   distanceUnit?: "km" | "mi";
   defaultLandingPage?: LandingPage;
+  restTimerSeconds?: number;
 }
 
 export function useUpdateProfile() {

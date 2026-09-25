@@ -3,6 +3,7 @@ import type { Env } from "../types";
 import type { AuthVariables } from "../middleware/requireAuth";
 import { requireAuth } from "../middleware/requireAuth";
 import {
+  getFriendshipRequesterId,
   listFriends,
   listIncomingRequests,
   removeFriend,
@@ -10,6 +11,8 @@ import {
   searchUsersByUsername,
   sendFriendRequest,
 } from "../lib/friendships";
+import { getUserById } from "../lib/users";
+import { notifyUser } from "../lib/notifications";
 
 export const friendsRoute = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
 
@@ -41,14 +44,43 @@ friendsRoute.post("/api/friends/requests", async (c) => {
   const body = await c.req.json<Partial<SendRequestBody>>().catch(() => null);
   if (!body?.toUsername) return c.json({ error: "toUsername is required." }, 422);
 
-  const result = await sendFriendRequest(c.env, c.get("userId"), body.toUsername);
+  const userId = c.get("userId");
+  const { result, targetUserId } = await sendFriendRequest(c.env, userId, body.toUsername);
   if (result in REQUEST_RESULT_ERRORS) return c.json({ error: REQUEST_RESULT_ERRORS[result] }, 422);
+
+  if (targetUserId && (result === "requested" || result === "auto_accepted")) {
+    const requester = await getUserById(c.env, userId);
+    const title = result === "auto_accepted" ? "New friend" : "Friend request";
+    const body2 =
+      result === "auto_accepted"
+        ? `${requester?.display_name ?? "Someone"} accepted your friend request.`
+        : `${requester?.display_name ?? "Someone"} sent you a friend request.`;
+    c.executionCtx.waitUntil(
+      notifyUser(c.env, targetUserId, { type: result === "auto_accepted" ? "friend_accepted" : "friend_request", title, body: body2, link: "/friends" })
+    );
+  }
+
   return c.json({ result }, 201);
 });
 
 friendsRoute.post("/api/friends/requests/:id/accept", async (c) => {
-  const ok = await respondToFriendRequest(c.env, c.get("userId"), Number(c.req.param("id")), true);
+  const friendshipId = Number(c.req.param("id"));
+  const requesterId = await getFriendshipRequesterId(c.env, friendshipId);
+  const ok = await respondToFriendRequest(c.env, c.get("userId"), friendshipId, true);
   if (!ok) return c.json({ error: "Not found." }, 404);
+
+  if (requesterId) {
+    const accepter = await getUserById(c.env, c.get("userId"));
+    c.executionCtx.waitUntil(
+      notifyUser(c.env, requesterId, {
+        type: "friend_accepted",
+        title: "New friend",
+        body: `${accepter?.display_name ?? "Someone"} accepted your friend request.`,
+        link: "/friends",
+      })
+    );
+  }
+
   return c.json({ ok: true });
 });
 

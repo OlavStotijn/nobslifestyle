@@ -8,6 +8,16 @@ export function localDateInTz(instant: Date, timeZone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(instant);
 }
 
+const WEEKDAY_INDEX: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+
+// 0 = Sunday .. 6 = Saturday, same convention as JS Date#getDay() and
+// program_days.weekday, but computed in the user's local timezone rather
+// than the Worker's UTC clock.
+export function localWeekdayInTz(instant: Date, timeZone: string): number {
+  const short = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(instant);
+  return WEEKDAY_INDEX[short] ?? instant.getUTCDay();
+}
+
 export function localTimeInTz(instant: Date, timeZone: string): string {
   return new Intl.DateTimeFormat("en-GB", {
     timeZone,

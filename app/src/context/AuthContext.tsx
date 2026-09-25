@@ -12,6 +12,8 @@ export interface User {
   weightUnit: "kg" | "lb";
   distanceUnit: "km" | "mi";
   defaultLandingPage: LandingPage;
+  restTimerSeconds: number;
+  activeProgramId: number | null;
   emailVerified: boolean;
 }
 

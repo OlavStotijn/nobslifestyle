@@ -29,6 +29,7 @@ interface UpdateProfileBody {
   weightUnit?: "kg" | "lb";
   distanceUnit?: "km" | "mi";
   defaultLandingPage?: string;
+  restTimerSeconds?: number;
 }
 
 const VALID_WEIGHT_UNITS = ["kg", "lb"];
@@ -55,6 +56,9 @@ profileRoute.patch("/api/profile", async (c) => {
   if (body.distanceUnit !== undefined && !VALID_DISTANCE_UNITS.includes(body.distanceUnit)) {
     return c.json({ error: "Invalid distanceUnit." }, 422);
   }
+  if (body.restTimerSeconds !== undefined && (body.restTimerSeconds < 10 || body.restTimerSeconds > 600)) {
+    return c.json({ error: "restTimerSeconds must be between 10 and 600." }, 422);
+  }
 
   await c.env.DB.prepare(
     `UPDATE users SET
@@ -63,6 +67,7 @@ profileRoute.patch("/api/profile", async (c) => {
        weight_unit = COALESCE(?, weight_unit),
        distance_unit = COALESCE(?, distance_unit),
        default_landing_page = COALESCE(?, default_landing_page),
+       rest_timer_seconds = COALESCE(?, rest_timer_seconds),
        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
      WHERE id = ?`
   )
@@ -72,6 +77,7 @@ profileRoute.patch("/api/profile", async (c) => {
       body.weightUnit ?? null,
       body.distanceUnit ?? null,
       body.defaultLandingPage ?? null,
+      body.restTimerSeconds ?? null,
       userId
     )
     .run();

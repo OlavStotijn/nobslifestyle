@@ -16,6 +16,8 @@ CREATE TABLE users (
   weight_unit        TEXT    NOT NULL DEFAULT 'kg' CHECK (weight_unit IN ('kg','lb')),
   distance_unit      TEXT    NOT NULL DEFAULT 'km' CHECK (distance_unit IN ('km','mi')),
   default_landing_page TEXT  NOT NULL DEFAULT 'summary',
+  rest_timer_seconds INTEGER NOT NULL DEFAULT 90,
+  active_program_id  INTEGER,
   token_version      INTEGER NOT NULL DEFAULT 1,
   email_verified_at  TEXT,
   created_at         TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
@@ -272,3 +274,89 @@ CREATE TABLE progress_photos (
   created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE INDEX idx_progress_photos_user ON progress_photos (user_id, taken_at DESC);
+
+-- ============================================================
+-- Phase 8: weight trend, programs, food favorites/saved meals,
+-- comments, streaks (computed, no table), push + notifications
+-- ============================================================
+
+CREATE TABLE weight_logs (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id            INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  weight_kg          REAL    NOT NULL,
+  logged_date_local  TEXT    NOT NULL,
+  note               TEXT,
+  created_at         TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX idx_weight_logs_user_date ON weight_logs (user_id, logged_date_local DESC);
+
+CREATE TABLE workout_programs (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name        TEXT    NOT NULL,
+  created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX idx_programs_user ON workout_programs (user_id);
+
+CREATE TABLE program_days (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  program_id  INTEGER NOT NULL REFERENCES workout_programs(id) ON DELETE CASCADE,
+  weekday     INTEGER NOT NULL CHECK (weekday BETWEEN 0 AND 6),
+  schema_id   INTEGER REFERENCES workout_schemas(id) ON DELETE SET NULL,
+  UNIQUE (program_id, weekday)
+);
+
+CREATE TABLE food_favorites (
+  user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  food_item_id  INTEGER NOT NULL REFERENCES food_items(id) ON DELETE CASCADE,
+  created_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  PRIMARY KEY (user_id, food_item_id)
+);
+
+CREATE TABLE saved_meals (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name        TEXT    NOT NULL,
+  created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX idx_saved_meals_user ON saved_meals (user_id);
+
+CREATE TABLE saved_meal_items (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  saved_meal_id  INTEGER NOT NULL REFERENCES saved_meals(id) ON DELETE CASCADE,
+  food_item_id   INTEGER NOT NULL REFERENCES food_items(id) ON DELETE RESTRICT,
+  quantity_g     REAL    NOT NULL
+);
+CREATE INDEX idx_saved_meal_items_meal ON saved_meal_items (saved_meal_id);
+
+CREATE TABLE post_comments (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_id     INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  body        TEXT    NOT NULL,
+  created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX idx_post_comments_post ON post_comments (post_id, created_at ASC);
+
+CREATE TABLE push_subscriptions (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  endpoint    TEXT    NOT NULL UNIQUE,
+  p256dh      TEXT    NOT NULL,
+  auth        TEXT    NOT NULL,
+  created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX idx_push_subscriptions_user ON push_subscriptions (user_id);
+
+CREATE TABLE notifications (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type        TEXT    NOT NULL CHECK (type IN ('friend_request','friend_accepted','post_comment','post_like')),
+  title       TEXT    NOT NULL,
+  body        TEXT    NOT NULL,
+  link        TEXT,
+  read_at     TEXT,
+  created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX idx_notifications_user_created ON notifications (user_id, created_at DESC);

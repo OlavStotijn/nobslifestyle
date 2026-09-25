@@ -75,13 +75,18 @@ export async function getFriendUserIds(env: Env, userId: number): Promise<number
 
 export type SendRequestResult = "requested" | "auto_accepted" | "already_friends" | "already_pending" | "self" | "not_found";
 
+export interface SendRequestOutcome {
+  result: SendRequestResult;
+  targetUserId: number | null;
+}
+
 // If the target already sent *us* a pending request, accept it instead of
 // creating a duplicate reverse row — friendships are symmetric, so two
 // one-directional pending rows between the same pair would be redundant.
-export async function sendFriendRequest(env: Env, requesterId: number, toUsername: string): Promise<SendRequestResult> {
+export async function sendFriendRequest(env: Env, requesterId: number, toUsername: string): Promise<SendRequestOutcome> {
   const target = await env.DB.prepare("SELECT id FROM users WHERE username = ?").bind(toUsername).first<{ id: number }>();
-  if (!target) return "not_found";
-  if (target.id === requesterId) return "self";
+  if (!target) return { result: "not_found", targetUserId: null };
+  if (target.id === requesterId) return { result: "self", targetUserId: null };
 
   const existing = await env.DB.prepare(
     `SELECT id, requester_id, status FROM friendships
@@ -91,23 +96,32 @@ export async function sendFriendRequest(env: Env, requesterId: number, toUsernam
     .first<{ id: number; requester_id: number; status: string }>();
 
   if (existing) {
-    if (existing.status === "accepted") return "already_friends";
-    if (existing.status === "pending" && existing.requester_id === requesterId) return "already_pending";
+    if (existing.status === "accepted") return { result: "already_friends", targetUserId: null };
+    if (existing.status === "pending" && existing.requester_id === requesterId) {
+      return { result: "already_pending", targetUserId: null };
+    }
     if (existing.status === "pending" && existing.requester_id === target.id) {
       await env.DB.prepare("UPDATE friendships SET status = 'accepted', responded_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
         .bind(existing.id)
         .run();
-      return "auto_accepted";
+      return { result: "auto_accepted", targetUserId: target.id };
     }
     // previously declined/blocked — let a fresh request reset it
     await env.DB.prepare("UPDATE friendships SET requester_id = ?, addressee_id = ?, status = 'pending', responded_at = NULL WHERE id = ?")
       .bind(requesterId, target.id, existing.id)
       .run();
-    return "requested";
+    return { result: "requested", targetUserId: target.id };
   }
 
   await env.DB.prepare("INSERT INTO friendships (requester_id, addressee_id) VALUES (?, ?)").bind(requesterId, target.id).run();
-  return "requested";
+  return { result: "requested", targetUserId: target.id };
+}
+
+// Looks up who the addressee is for a given accept/decline, so the route
+// can notify the original requester once the response lands.
+export async function getFriendshipRequesterId(env: Env, friendshipId: number): Promise<number | null> {
+  const row = await env.DB.prepare("SELECT requester_id FROM friendships WHERE id = ?").bind(friendshipId).first<{ requester_id: number }>();
+  return row?.requester_id ?? null;
 }
 
 export async function respondToFriendRequest(env: Env, userId: number, friendshipId: number, accept: boolean): Promise<boolean> {

@@ -20,7 +20,8 @@
     "APP_URL": "https://nobslifestyle.com",
     "MAIL_FROM_ADDRESS": "NoBSLifestyle <noreply@nobslifestyle.com>",
     "TURNSTILE_SITE_KEY": "0x4AAAAAAFDXuOLsXzZ6nZJs",
-    "OPEN_FOOD_FACTS_USER_AGENT": "NoBSLifestyle/1.0 (olavstotijn@gmail.com)"
+    "OPEN_FOOD_FACTS_USER_AGENT": "NoBSLifestyle/1.0 (olavstotijn@gmail.com)",
+    "VAPID_PUBLIC_KEY": "BCjJc41DBbYS0oURGVyXbIEsNATYu9CVRfwETrJTVZ7gmVbzlpeyVi8cik47kvCDf4P4I9G5FmN3MNSDfb1DFJ8"
   },
   "d1_databases": [
     {

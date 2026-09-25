@@ -12,4 +12,6 @@ export interface Env {
   OPEN_FOOD_FACTS_USER_AGENT: string;
   SESSION_SECRET: string;
   SEND_EMAIL: SendEmail;
+  VAPID_PUBLIC_KEY: string;
+  VAPID_PRIVATE_KEY_JWK: string;
 }

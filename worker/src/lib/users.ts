@@ -13,6 +13,8 @@ export interface UserRow {
   weight_unit: "kg" | "lb";
   distance_unit: "km" | "mi";
   default_landing_page: string;
+  rest_timer_seconds: number;
+  active_program_id: number | null;
   token_version: number;
   email_verified_at: string | null;
   created_at: string;
@@ -30,6 +32,8 @@ export function publicUser(u: UserRow) {
     defaultLandingPage: (VALID_LANDING_PAGES.includes(u.default_landing_page as LandingPage)
       ? u.default_landing_page
       : "summary") as LandingPage,
+    restTimerSeconds: u.rest_timer_seconds,
+    activeProgramId: u.active_program_id,
     emailVerified: u.email_verified_at !== null,
   };
 }

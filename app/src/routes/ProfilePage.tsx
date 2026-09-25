@@ -4,8 +4,80 @@ import { api, ApiError } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useProgressPhotos } from "../api/hooks/useProgressPhotos";
 import { useSchemas } from "../api/hooks/useWorkouts";
+import { useCreateWeightLog, useStreaks, useWeightLogs } from "../api/hooks/useProgress";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { ProgressPhotoGrid } from "../components/ProgressPhotoGrid";
+import { LineChart } from "../components/LineChart";
+import { useUnits } from "../lib/useUnits";
+
+function WeightSection() {
+  const { data: logs } = useWeightLogs();
+  const createLog = useCreateWeightLog();
+  const { formatWeight, displayToKg, weightLabel } = useUnits();
+  const [input, setInput] = useState("");
+
+  async function add() {
+    const kg = displayToKg(Number(input));
+    if (!kg || kg <= 0) return;
+    await createLog.mutateAsync({ weightKg: kg });
+    setInput("");
+  }
+
+  return (
+    <div className="mt-8">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">Weight</h2>
+      <div className="mt-2 rounded-2xl border border-border bg-surface p-4">
+        {logs && logs.length > 0 ? (
+          <>
+            <LineChart points={logs.map((l) => l.weightKg)} />
+            <p className="mt-2 text-center text-sm text-ink-muted">
+              Latest: {formatWeight(logs[logs.length - 1].weightKg)}
+              {weightLabel}
+            </p>
+          </>
+        ) : (
+          <p className="text-center text-sm text-ink-muted">Log your weight to start a trend line.</p>
+        )}
+        <div className="mt-3 flex gap-2">
+          <input
+            type="number"
+            inputMode="decimal"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={`Weight (${weightLabel})`}
+            className="flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-ink outline-none focus:border-accent"
+          />
+          <button
+            type="button"
+            onClick={add}
+            disabled={createLog.isPending || !input}
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            Log
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StreaksSection() {
+  const { data: streaks } = useStreaks();
+  if (!streaks || (streaks.loggingStreakDays === 0 && streaks.workoutStreakDays === 0)) return null;
+
+  return (
+    <div className="mt-8 grid grid-cols-2 gap-3">
+      <div className="rounded-xl bg-surface-2 p-3 text-center">
+        <p className="text-2xl font-bold text-accent">🔥{streaks.workoutStreakDays}</p>
+        <p className="text-xs text-ink-muted">Workout streak</p>
+      </div>
+      <div className="rounded-xl bg-surface-2 p-3 text-center">
+        <p className="text-2xl font-bold text-accent">🔥{streaks.loggingStreakDays}</p>
+        <p className="text-xs text-ink-muted">Logging streak</p>
+      </div>
+    </div>
+  );
+}
 
 function VerifyEmailBanner() {
   const { user, refresh } = useAuth();
@@ -77,6 +149,8 @@ export function ProfilePage() {
       </div>
 
       <VerifyEmailBanner />
+      <StreaksSection />
+      <WeightSection />
 
       <div className="mt-8 flex items-center justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">Progress photos</h2>
@@ -110,6 +184,20 @@ export function ProfilePage() {
       )}
 
       <div className="mt-8 flex flex-1 flex-col gap-2">
+        <Link
+          to="/progress/prs"
+          className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-4"
+        >
+          <span className="font-medium text-ink">Personal records</span>
+          <span className="text-ink-muted">→</span>
+        </Link>
+        <Link
+          to="/programs"
+          className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-4"
+        >
+          <span className="font-medium text-ink">Programs</span>
+          <span className="text-ink-muted">→</span>
+        </Link>
         <Link
           to="/profile/settings"
           className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-4"
