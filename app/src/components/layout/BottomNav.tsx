@@ -59,16 +59,18 @@ export function BottomNav() {
         {ITEMS.map((item) => {
           const isActive = location.pathname === item.to;
           return (
-            <NavLink key={item.to} to={item.to} className="relative flex flex-col items-center gap-1 px-3 py-1.5 text-xs font-medium">
-              {isActive && (
-                <motion.span
-                  layoutId="nav-active-indicator"
-                  className="absolute left-1/2 top-0 h-9 w-9 -translate-x-1/2 rounded-full bg-accent-soft ring-2 ring-accent"
-                  transition={{ type: "spring", stiffness: 500, damping: 32 }}
-                />
-              )}
-              <span className={`relative z-10 transition-colors ${isActive ? "text-accent" : "text-ink-muted"}`}>{item.icon}</span>
-              <span className={`relative z-10 transition-colors ${isActive ? "text-accent" : "text-ink-muted"}`}>{t(item.labelKey)}</span>
+            <NavLink key={item.to} to={item.to} className="flex flex-col items-center gap-1 px-3 py-1.5 text-xs font-medium">
+              <span className="relative flex h-9 w-9 items-center justify-center">
+                {isActive && (
+                  <motion.span
+                    layoutId="nav-active-indicator"
+                    className="absolute inset-0 rounded-full bg-accent-soft ring-2 ring-accent"
+                    transition={{ type: "spring", stiffness: 500, damping: 32 }}
+                  />
+                )}
+                <span className={`relative z-10 transition-colors ${isActive ? "text-accent" : "text-ink-muted"}`}>{item.icon}</span>
+              </span>
+              <span className={`transition-colors ${isActive ? "text-accent" : "text-ink-muted"}`}>{t(item.labelKey)}</span>
             </NavLink>
           );
         })}
