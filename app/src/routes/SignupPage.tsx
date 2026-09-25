@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { api, ApiError } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { TurnstileWidget } from "../components/TurnstileWidget";
 import type { User } from "../context/AuthContext";
 
 export function SignupPage() {
@@ -11,6 +12,7 @@ export function SignupPage() {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -19,10 +21,12 @@ export function SignupPage() {
     setError(null);
     setSubmitting(true);
     try {
-      // TODO(Phase 0 polish): render the real Turnstile widget and pass its
-      // token here once TURNSTILE_SITE_KEY is provisioned; the API accepts
-      // requests without one in local dev only.
-      const { user } = await api.post<{ user: User }>("/auth/signup", { email, password, displayName });
+      const { user } = await api.post<{ user: User }>("/auth/signup", {
+        email,
+        password,
+        displayName,
+        turnstileToken,
+      });
       setUser(user);
       navigate("/onboarding");
     } catch (err) {
@@ -81,11 +85,13 @@ export function SignupPage() {
             <span className="text-xs text-ink-muted">At least 8 characters.</span>
           </label>
 
+          <TurnstileWidget onToken={setTurnstileToken} />
+
           {error && <p className="text-sm text-red-500">{error}</p>}
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || !turnstileToken}
             className="mt-2 rounded-xl bg-accent px-4 py-3 font-semibold text-white transition-opacity disabled:opacity-50"
           >
             {submitting ? "Creating account…" : "Create account"}

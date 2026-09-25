@@ -19,14 +19,14 @@
     "ENVIRONMENT": "production",
     "APP_URL": "https://nobslifestyle.com",
     "MAIL_FROM_ADDRESS": "NoBSLifestyle <noreply@nobslifestyle.com>",
-    "TURNSTILE_SITE_KEY": "REPLACE_WITH_PUBLIC_SITE_KEY",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAFDXuOLsXzZ6nZJs",
     "OPEN_FOOD_FACTS_USER_AGENT": "NoBSLifestyle/1.0 (olavstotijn@gmail.com)"
   },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "nobslifestyle",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID"
+      "database_id": "48bef81f-5559-4589-b44a-608cd338e8a1"
     }
   ],
   "r2_buckets": [
@@ -38,7 +38,7 @@
   "kv_namespaces": [
     {
       "binding": "RATE_LIMIT_KV",
-      "id": "REPLACE_WITH_KV_NAMESPACE_ID"
+      "id": "7bc617b552cd418897b46e519669e378"
     }
   ],
   "ai": {
