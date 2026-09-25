@@ -194,6 +194,9 @@ function FinishedSummary({ sessionId }: { sessionId: number }) {
         >
           {posted ? "Posted to friends ✓" : createPost.isPending ? "Posting…" : "Post to friends"}
         </button>
+        <Link to={`/sessions/${sessionId}/share`} className="rounded-xl border border-border px-4 py-3 font-semibold text-ink">
+          Share photo
+        </Link>
         <Link to="/workouts" className="rounded-xl bg-accent px-4 py-3 font-semibold text-white">
           Done
         </Link>
