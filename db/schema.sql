@@ -14,6 +14,7 @@ CREATE TABLE users (
   username           TEXT    UNIQUE,
   avatar_r2_key      TEXT,
   weight_unit        TEXT    NOT NULL DEFAULT 'kg' CHECK (weight_unit IN ('kg','lb')),
+  distance_unit      TEXT    NOT NULL DEFAULT 'km' CHECK (distance_unit IN ('km','mi')),
   default_landing_page TEXT  NOT NULL DEFAULT 'summary',
   token_version      INTEGER NOT NULL DEFAULT 1,
   email_verified_at  TEXT,
@@ -136,6 +137,7 @@ CREATE TABLE workout_schemas (
   name         TEXT    NOT NULL,
   description  TEXT,
   archived_at  TEXT,
+  visibility   TEXT    NOT NULL DEFAULT 'private' CHECK (visibility IN ('private','friends')),
   created_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   updated_at   TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
@@ -241,6 +243,8 @@ CREATE TABLE posts (
   session_id         INTEGER UNIQUE REFERENCES training_sessions(id) ON DELETE CASCADE,
   cardio_session_id  INTEGER UNIQUE REFERENCES cardio_sessions(id) ON DELETE CASCADE,
   caption            TEXT,
+  photo_r2_key       TEXT,
+  location           TEXT,
   created_at         TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   CHECK ((session_id IS NULL) != (cardio_session_id IS NULL))
 );

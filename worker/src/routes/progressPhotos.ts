@@ -12,6 +12,7 @@ import {
   updateProgressPhoto,
   type PhotoVisibility,
 } from "../lib/progressPhotos";
+import { isImageAppropriate } from "../lib/contentModeration";
 
 export const progressPhotosRoute = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
 
@@ -37,9 +38,15 @@ progressPhotosRoute.post("/api/progress-photos", async (c) => {
   const visibility = VALID_VISIBILITY.includes(visibilityRaw as PhotoVisibility) ? (visibilityRaw as PhotoVisibility) : "private";
   const weightKg = typeof weightRaw === "string" && weightRaw.trim() !== "" ? Number(weightRaw) : null;
 
+  const buffer = await file.arrayBuffer();
+  const appropriate = await isImageAppropriate(c.env, buffer, file.type);
+  if (!appropriate) {
+    return c.json({ error: "This photo looks like it may violate our content guidelines. Try a different one." }, 422);
+  }
+
   const userId = c.get("userId");
   const key = `progress/${userId}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.jpg`;
-  await c.env.MEDIA.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type || "image/jpeg" } });
+  await c.env.MEDIA.put(key, buffer, { httpMetadata: { contentType: file.type || "image/jpeg" } });
 
   const photo = await createProgressPhoto(c.env, userId, {
     r2Key: key,

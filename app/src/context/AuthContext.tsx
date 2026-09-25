@@ -10,6 +10,7 @@ export interface User {
   username: string | null;
   avatarUrl: string | null;
   weightUnit: "kg" | "lb";
+  distanceUnit: "km" | "mi";
   defaultLandingPage: LandingPage;
   emailVerified: boolean;
 }

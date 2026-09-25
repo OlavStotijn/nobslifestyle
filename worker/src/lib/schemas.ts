@@ -1,11 +1,14 @@
 import type { Env } from "../types";
 
+export type SchemaVisibility = "private" | "friends";
+
 export interface SchemaRow {
   id: number;
   user_id: number;
   name: string;
   description: string | null;
   archived_at: string | null;
+  visibility: SchemaVisibility;
   updated_at: string;
 }
 
@@ -20,6 +23,7 @@ export interface SchemaExerciseRow {
   target_weight_kg: number;
   notes: string | null;
   exercise_name: string;
+  exercise_category: string | null;
 }
 
 export function publicSchemaExercise(row: SchemaExerciseRow) {
@@ -27,6 +31,7 @@ export function publicSchemaExercise(row: SchemaExerciseRow) {
     id: row.id,
     exerciseId: row.exercise_id,
     exerciseName: row.exercise_name,
+    category: row.exercise_category,
     sortOrder: row.sort_order,
     targetSets: row.target_sets,
     targetRepsMin: row.target_reps_min,
@@ -49,9 +54,22 @@ export async function getSchemaOwned(env: Env, userId: number, id: number): Prom
   return env.DB.prepare("SELECT * FROM workout_schemas WHERE id = ? AND user_id = ?").bind(id, userId).first<SchemaRow>();
 }
 
+export async function getSchemaById(env: Env, id: number): Promise<SchemaRow | null> {
+  return env.DB.prepare("SELECT * FROM workout_schemas WHERE id = ?").bind(id).first<SchemaRow>();
+}
+
+export async function listFriendVisibleSchemas(env: Env, friendUserId: number): Promise<SchemaRow[]> {
+  const { results } = await env.DB.prepare(
+    "SELECT * FROM workout_schemas WHERE user_id = ? AND archived_at IS NULL AND visibility = 'friends' ORDER BY updated_at DESC"
+  )
+    .bind(friendUserId)
+    .all<SchemaRow>();
+  return results;
+}
+
 export async function listSchemaExercises(env: Env, schemaId: number): Promise<SchemaExerciseRow[]> {
   const { results } = await env.DB.prepare(
-    `SELECT se.*, e.name AS exercise_name
+    `SELECT se.*, e.name AS exercise_name, e.category AS exercise_category
      FROM schema_exercises se
      JOIN exercises e ON e.id = se.exercise_id
      WHERE se.schema_id = ?
@@ -80,7 +98,7 @@ export async function updateSchema(
   env: Env,
   userId: number,
   id: number,
-  params: { name?: string; description?: string | null }
+  params: { name?: string; description?: string | null; visibility?: SchemaVisibility }
 ): Promise<SchemaRow | null> {
   const existing = await getSchemaOwned(env, userId, id);
   if (!existing) return null;
@@ -89,13 +107,43 @@ export async function updateSchema(
     `UPDATE workout_schemas SET
        name = COALESCE(?, name),
        description = ?,
+       visibility = COALESCE(?, visibility),
        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
      WHERE id = ?`
   )
-    .bind(params.name ?? null, params.description !== undefined ? params.description : existing.description, id)
+    .bind(
+      params.name ?? null,
+      params.description !== undefined ? params.description : existing.description,
+      params.visibility ?? null,
+      id
+    )
     .run();
 
   return getSchemaOwned(env, userId, id);
+}
+
+// Duplicates another user's schema (name, description, and every schema
+// exercise row) into the requesting user's own schemas — always creates a
+// new schema, never links back to or mutates the original.
+export async function copySchemaToUser(env: Env, sourceSchemaId: number, targetUserId: number): Promise<number> {
+  const source = await getSchemaById(env, sourceSchemaId);
+  if (!source) throw new Error("Schema not found.");
+
+  const copy = await createSchema(env, targetUserId, { name: source.name, description: source.description });
+  const exercises = await listSchemaExercises(env, sourceSchemaId);
+
+  for (const ex of exercises) {
+    await addSchemaExercise(env, copy.id, {
+      exerciseId: ex.exercise_id,
+      targetSets: ex.target_sets,
+      targetRepsMin: ex.target_reps_min,
+      targetRepsMax: ex.target_reps_max,
+      targetWeightKg: ex.target_weight_kg,
+      notes: ex.notes,
+    });
+  }
+
+  return copy.id;
 }
 
 export async function archiveSchema(env: Env, userId: number, id: number): Promise<boolean> {
@@ -145,7 +193,8 @@ export async function addSchemaExercise(
 
   const id = result.meta.last_row_id as number;
   const rows = await env.DB.prepare(
-    `SELECT se.*, e.name AS exercise_name FROM schema_exercises se JOIN exercises e ON e.id = se.exercise_id WHERE se.id = ?`
+    `SELECT se.*, e.name AS exercise_name, e.category AS exercise_category
+     FROM schema_exercises se JOIN exercises e ON e.id = se.exercise_id WHERE se.id = ?`
   )
     .bind(id)
     .first<SchemaExerciseRow>();

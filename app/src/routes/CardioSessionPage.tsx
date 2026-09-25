@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { totalDistance, formatDistance, formatDuration, formatPace, formatSpeed, type RoutePoint } from "../lib/geo";
+import { totalDistance, formatDuration, type RoutePoint } from "../lib/geo";
 import { useCreateCardioSession, useUpdateCardioSession, type ActivityType, type CardioSession } from "../api/hooks/useCardioSessions";
-import { useCreatePost } from "../api/hooks/useSocial";
+import { useUnits } from "../lib/useUnits";
+import { PostComposer } from "../components/PostComposer";
 import { ApiError } from "../api/client";
 
 type Status = "tracking" | "paused" | "finishing";
@@ -15,6 +16,7 @@ function TrackingView({
   onFinished: (session: CardioSession) => void;
 }) {
   const navigate = useNavigate();
+  const { formatDistance, formatPace, formatSpeed, distanceLabel } = useUnits();
   const [status, setStatus] = useState<Status>("tracking");
   const [points, setPoints] = useState<RoutePoint[]>([]);
   const [elapsedS, setElapsedS] = useState(0);
@@ -107,7 +109,7 @@ function TrackingView({
         <p className="text-sm font-semibold uppercase tracking-wide text-ink-muted">{label} in progress</p>
 
         <p className="mt-4 text-6xl font-bold tabular-nums text-ink">{formatDistance(distance)}</p>
-        <p className="text-ink-muted">km</p>
+        <p className="text-ink-muted">{distanceLabel}</p>
 
         <div className="mt-8 grid grid-cols-2 gap-6">
           <div>
@@ -148,12 +150,11 @@ function TrackingView({
 }
 
 function FinishedView({ session }: { session: CardioSession }) {
+  const { formatDistance, distanceLabel } = useUnits();
   const [subtract, setSubtract] = useState(session.subtractFromIntake);
   const [rating, setRating] = useState(0);
   const [notes, setNotes] = useState("");
-  const [posted, setPosted] = useState(false);
   const updateSession = useUpdateCardioSession();
-  const createPost = useCreatePost();
 
   async function toggleSubtract() {
     const next = !subtract;
@@ -166,11 +167,6 @@ function FinishedView({ session }: { session: CardioSession }) {
     await updateSession.mutateAsync({ id: session.id, rating: nextRating, notes: notes || undefined });
   }
 
-  async function post() {
-    await createPost.mutateAsync({ cardioSessionId: session.id });
-    setPosted(true);
-  }
-
   const label = session.activityType === "running" ? "Run" : "Ride";
 
   return (
@@ -181,7 +177,7 @@ function FinishedView({ session }: { session: CardioSession }) {
         <div className="mt-6 grid grid-cols-3 gap-3">
           <div className="rounded-xl bg-surface-2 p-3">
             <p className="text-lg font-semibold text-ink">{formatDistance(session.distanceM)}</p>
-            <p className="text-xs text-ink-muted">km</p>
+            <p className="text-xs text-ink-muted">{distanceLabel}</p>
           </div>
           <div className="rounded-xl bg-surface-2 p-3">
             <p className="text-lg font-semibold text-ink">{formatDuration(session.durationS)}</p>
@@ -227,14 +223,7 @@ function FinishedView({ session }: { session: CardioSession }) {
         />
 
         <div className="mt-6 flex flex-col gap-3">
-          <button
-            type="button"
-            onClick={post}
-            disabled={posted || createPost.isPending}
-            className="rounded-xl border border-border px-4 py-3 font-semibold text-ink disabled:opacity-50"
-          >
-            {posted ? "Posted to friends ✓" : createPost.isPending ? "Posting…" : "Post to friends"}
-          </button>
+          <PostComposer cardioSessionId={session.id} />
           <Link to="/workouts" className="rounded-xl bg-accent px-4 py-3 font-semibold text-white">
             Done
           </Link>

@@ -23,6 +23,8 @@ export interface FriendRequest {
 interface FeedPostBase {
   postId: number;
   caption: string | null;
+  location: string | null;
+  photoUrl: string | null;
   createdAt: string;
   user: PublicUser;
   likeCount: number;
@@ -98,11 +100,26 @@ export function useFeed() {
   return useQuery({ queryKey: ["feed"], queryFn: () => api.get<{ posts: FeedPost[] }>("/feed").then((r) => r.posts) });
 }
 
+export interface CreatePostInput {
+  sessionId?: number;
+  cardioSessionId?: number;
+  caption?: string;
+  location?: string;
+  photo?: Blob;
+}
+
 export function useCreatePost() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { sessionId?: number; cardioSessionId?: number; caption?: string }) =>
-      api.post<{ postId: number }>("/posts", input),
+    mutationFn: (input: CreatePostInput) => {
+      const form = new FormData();
+      if (input.sessionId) form.append("sessionId", String(input.sessionId));
+      if (input.cardioSessionId) form.append("cardioSessionId", String(input.cardioSessionId));
+      if (input.caption) form.append("caption", input.caption);
+      if (input.location) form.append("location", input.location);
+      if (input.photo) form.append("image", input.photo, "post.jpg");
+      return api.postForm<{ postId: number }>("/posts", form);
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["feed"] }),
   });
 }

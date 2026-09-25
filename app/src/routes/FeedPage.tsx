@@ -1,7 +1,9 @@
 import { Link } from "react-router-dom";
 import { useFeed, useFriendRequests, useToggleLike, type FeedPost } from "../api/hooks/useSocial";
 import { ThemeToggle } from "../components/ThemeToggle";
-import { formatDistance, formatDuration, formatPace, formatSpeed } from "../lib/geo";
+import { SlideCarousel } from "../components/SlideCarousel";
+import { formatDuration } from "../lib/geo";
+import { useUnits } from "../lib/useUnits";
 
 const BADGE_LABEL: Record<string, string> = { pr: "PR", progress: "Progress", on_target: "On target", regression: "Down" };
 const BADGE_CLASS: Record<string, string> = {
@@ -20,11 +22,11 @@ function StarRow({ rating }: { rating: number }) {
   );
 }
 
-function PostCard({ post }: { post: FeedPost }) {
-  const toggleLike = useToggleLike();
+function StatsSlide({ post }: { post: FeedPost }) {
+  const { formatDistance, distanceLabel, formatPace, formatSpeed } = useUnits();
 
   return (
-    <div className="rounded-2xl border border-border bg-surface p-4">
+    <div className="p-4">
       <div className="flex items-center justify-between">
         <div>
           <p className="font-medium text-ink">{post.user.displayName}</p>
@@ -44,10 +46,11 @@ function PostCard({ post }: { post: FeedPost }) {
         )}
       </div>
 
+      {post.location && <p className="mt-1 text-xs text-ink-muted">📍 {post.location}</p>}
+
       {post.type === "strength" ? (
         <>
           <p className="mt-3 font-medium text-ink">{post.session.schemaName}</p>
-          {post.caption && <p className="mt-1 text-ink-muted">{post.caption}</p>}
           {post.session.rating && <StarRow rating={post.session.rating} />}
         </>
       ) : (
@@ -55,7 +58,7 @@ function PostCard({ post }: { post: FeedPost }) {
           <div className="mt-3 grid grid-cols-3 gap-2 text-center">
             <div>
               <p className="text-lg font-semibold text-ink">{formatDistance(post.cardio.distanceM)}</p>
-              <p className="text-xs text-ink-muted">km</p>
+              <p className="text-xs text-ink-muted">{distanceLabel}</p>
             </div>
             <div>
               <p className="text-lg font-semibold text-ink">{formatDuration(post.cardio.durationS)}</p>
@@ -71,18 +74,41 @@ function PostCard({ post }: { post: FeedPost }) {
             </div>
           </div>
           <p className="mt-2 text-sm text-ink-muted">{post.cardio.calories} kcal burned</p>
-          {post.caption && <p className="mt-1 text-ink-muted">{post.caption}</p>}
           {post.cardio.rating && <StarRow rating={post.cardio.rating} />}
         </>
       )}
 
-      <button
-        type="button"
-        onClick={() => toggleLike.mutate({ postId: post.postId, liked: post.likedByMe })}
-        className={`mt-3 flex items-center gap-1.5 text-sm font-medium ${post.likedByMe ? "text-accent" : "text-ink-muted"}`}
-      >
-        {post.likedByMe ? "♥" : "♡"} {post.likeCount > 0 ? post.likeCount : ""} {post.likeCount === 1 ? "like" : "likes"}
-      </button>
+      {post.caption && <p className="mt-2 text-ink-muted">{post.caption}</p>}
+    </div>
+  );
+}
+
+function PostCard({ post }: { post: FeedPost }) {
+  const toggleLike = useToggleLike();
+
+  const statsSlide = <StatsSlide post={post} />;
+  const slides = post.photoUrl
+    ? [
+        <img key="photo" src={post.photoUrl} alt="" className="aspect-square w-full object-cover" />,
+        <div key="stats" className="bg-surface">
+          {statsSlide}
+        </div>,
+      ]
+    : [statsSlide];
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+      <SlideCarousel slides={slides} />
+
+      <div className="px-4 pb-4">
+        <button
+          type="button"
+          onClick={() => toggleLike.mutate({ postId: post.postId, liked: post.likedByMe })}
+          className={`flex items-center gap-1.5 text-sm font-medium ${post.likedByMe ? "text-accent" : "text-ink-muted"}`}
+        >
+          {post.likedByMe ? "♥" : "♡"} {post.likeCount > 0 ? post.likeCount : ""} {post.likeCount === 1 ? "like" : "likes"}
+        </button>
+      </div>
     </div>
   );
 }

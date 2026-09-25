@@ -6,6 +6,7 @@ import {
   useExerciseSearch,
   useSchema,
   useUpdateSchemaExercise,
+  useUpdateSchemaVisibility,
   type Exercise,
   type SchemaExercise,
 } from "../api/hooks/useWorkouts";
@@ -13,6 +14,7 @@ import { useStartSession } from "../api/hooks/useSessions";
 import { ApiError } from "../api/client";
 import { BottomSheet } from "../components/BottomSheet";
 import { useDebounced } from "../hooks/useDebounced";
+import { CATEGORY_LABELS, CATEGORY_ORDER, MuscleGroupIcon, normalizeCategory } from "../components/MuscleGroupIcon";
 
 function ExercisePicker({ onPick, onClose }: { onPick: (exercise: Exercise) => void; onClose: () => void }) {
   const [query, setQuery] = useState("");
@@ -39,8 +41,13 @@ function ExercisePicker({ onPick, onClose }: { onPick: (exercise: Exercise) => v
             onClick={() => onPick(ex)}
             className="flex items-center justify-between rounded-xl border border-border bg-bg px-4 py-3 text-left"
           >
-            <span className="font-medium text-ink">{ex.name}</span>
-            {ex.category && <span className="text-sm text-ink-muted">{ex.category}</span>}
+            <span className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft p-1.5 text-accent">
+                <MuscleGroupIcon category={ex.category} className="block h-full w-full" />
+              </span>
+              <span className="font-medium text-ink">{ex.name}</span>
+            </span>
+            {ex.category && <span className="text-sm text-ink-muted">{CATEGORY_LABELS[normalizeCategory(ex.category)]}</span>}
           </button>
         ))}
       </div>
@@ -60,7 +67,12 @@ function SchemaExerciseRow({
   return (
     <div className="rounded-xl border border-border bg-surface p-4">
       <div className="flex items-center justify-between">
-        <p className="font-medium text-ink">{row.exerciseName}</p>
+        <span className="flex items-center gap-3">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft p-1.5 text-accent">
+            <MuscleGroupIcon category={row.category} className="block h-full w-full" />
+          </span>
+          <p className="font-medium text-ink">{row.exerciseName}</p>
+        </span>
         <button type="button" onClick={onDelete} className="text-sm text-ink-muted hover:text-red-500">
           Remove
         </button>
@@ -117,6 +129,7 @@ export function SchemaEditPage() {
   const addExercise = useAddSchemaExercise(schemaId);
   const updateExercise = useUpdateSchemaExercise(schemaId);
   const deleteExercise = useDeleteSchemaExercise(schemaId);
+  const updateVisibility = useUpdateSchemaVisibility(schemaId);
   const startSession = useStartSession();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
@@ -146,6 +159,16 @@ export function SchemaEditPage() {
     return <div className="flex min-h-full items-center justify-center bg-bg text-ink-muted">Loading…</div>;
   }
 
+  const byCategory = new Map<string, SchemaExercise[]>();
+  for (const row of schema.exercises) {
+    const key = normalizeCategory(row.category);
+    if (!byCategory.has(key)) byCategory.set(key, []);
+    byCategory.get(key)!.push(row);
+  }
+  const groupedExercises = CATEGORY_ORDER.filter((c) => byCategory.has(c)).map(
+    (c) => [c, byCategory.get(c)!] as [string, SchemaExercise[]]
+  );
+
   return (
     <div className="flex min-h-full flex-col bg-bg px-6 py-8">
       <button type="button" onClick={() => navigate("/workouts")} className="self-start text-sm text-ink-muted">
@@ -154,15 +177,46 @@ export function SchemaEditPage() {
 
       <h1 className="mt-4 text-2xl font-bold text-ink">{schema.name}</h1>
 
-      <div className="mt-6 flex flex-1 flex-col gap-3">
-        {schema.exercises.length === 0 && <p className="text-ink-muted">Add exercises to build your schema.</p>}
-        {schema.exercises.map((row) => (
-          <SchemaExerciseRow
-            key={row.id}
-            row={row}
-            onUpdate={(patch) => updateExercise.mutate({ rowId: row.id, ...patch })}
-            onDelete={() => deleteExercise.mutate(row.id)}
+      <button
+        type="button"
+        onClick={() => updateVisibility.mutate(schema.visibility === "private" ? "friends" : "private")}
+        disabled={updateVisibility.isPending}
+        className="mt-3 flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 text-left disabled:opacity-50"
+      >
+        <span className="text-sm text-ink">
+          {schema.visibility === "friends" ? "Shared with friends" : "Private"}
+        </span>
+        <span
+          className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${
+            schema.visibility === "friends" ? "bg-accent" : "bg-surface-2"
+          }`}
+        >
+          <span
+            className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform"
+            style={{ transform: schema.visibility === "friends" ? "translateX(1.125rem)" : "translateX(0.125rem)" }}
           />
+        </span>
+      </button>
+
+      <div className="mt-6 flex flex-1 flex-col gap-5">
+        {schema.exercises.length === 0 && <p className="text-ink-muted">Add exercises to build your schema.</p>}
+        {groupedExercises.map(([category, rows]) => (
+          <div key={category} className="flex flex-col gap-3">
+            <div className="flex items-center gap-2 text-ink-muted">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                <MuscleGroupIcon category={category} className="block h-full w-full" />
+              </span>
+              <h2 className="text-xs font-semibold uppercase tracking-wide">{CATEGORY_LABELS[category]}</h2>
+            </div>
+            {rows.map((row) => (
+              <SchemaExerciseRow
+                key={row.id}
+                row={row}
+                onUpdate={(patch) => updateExercise.mutate({ rowId: row.id, ...patch })}
+                onDelete={() => deleteExercise.mutate(row.id)}
+              />
+            ))}
+          </div>
         ))}
       </div>
 

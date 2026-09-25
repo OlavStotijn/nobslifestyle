@@ -6,6 +6,7 @@ interface UpdateProfileInput {
   displayName?: string;
   username?: string;
   weightUnit?: "kg" | "lb";
+  distanceUnit?: "km" | "mi";
   defaultLandingPage?: LandingPage;
 }
 

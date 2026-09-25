@@ -14,6 +14,7 @@ export interface SchemaExercise {
   id: number;
   exerciseId: number;
   exerciseName: string;
+  category: string | null;
   sortOrder: number;
   targetSets: number;
   targetRepsMin: number;
@@ -22,10 +23,13 @@ export interface SchemaExercise {
   notes: string | null;
 }
 
+export type SchemaVisibility = "private" | "friends";
+
 export interface SchemaSummary {
   id: number;
   name: string;
   description: string | null;
+  visibility: SchemaVisibility;
   updatedAt: string;
 }
 
@@ -61,6 +65,33 @@ export function useCreateSchema() {
   return useMutation({
     mutationFn: (input: { name: string; description?: string }) =>
       api.post<{ schema: SchemaDetail }>("/schemas", input).then((r) => r.schema),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["schemas"] }),
+  });
+}
+
+export function useUpdateSchemaVisibility(schemaId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (visibility: SchemaVisibility) => api.put<{ schema: SchemaDetail }>(`/schemas/${schemaId}`, { visibility }).then((r) => r.schema),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["schema", schemaId] });
+      queryClient.invalidateQueries({ queryKey: ["schemas"] });
+    },
+  });
+}
+
+export function useFriendSchemas(friendUserId: number | undefined) {
+  return useQuery({
+    queryKey: ["schemas", "friend", friendUserId],
+    queryFn: () => api.get<{ schemas: SchemaDetail[] }>(`/schemas/friend/${friendUserId}`).then((r) => r.schemas),
+    enabled: friendUserId != null,
+  });
+}
+
+export function useCopySchema() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (schemaId: number) => api.post<{ schema: SchemaDetail }>(`/schemas/${schemaId}/copy`).then((r) => r.schema),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["schemas"] }),
   });
 }

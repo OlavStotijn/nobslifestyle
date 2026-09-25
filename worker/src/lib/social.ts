@@ -4,6 +4,8 @@ import { getFriendUserIds } from "./friendships";
 export interface FeedPostRow {
   post_id: number;
   caption: string | null;
+  photo_r2_key: string | null;
+  location: string | null;
   post_created_at: string;
   user_id: number;
   display_name: string;
@@ -32,6 +34,8 @@ export function publicFeedPost(row: FeedPostRow, likedByMe: boolean) {
   const base = {
     postId: row.post_id,
     caption: row.caption,
+    location: row.location,
+    photoUrl: row.photo_r2_key ? `/api/media/${row.photo_r2_key}` : null,
     createdAt: row.post_created_at,
     user: {
       id: row.user_id,
@@ -76,7 +80,7 @@ export function publicFeedPost(row: FeedPostRow, likedByMe: boolean) {
 
 const FEED_SELECT = `
   SELECT
-    p.id AS post_id, p.caption, p.created_at AS post_created_at,
+    p.id AS post_id, p.caption, p.photo_r2_key, p.location, p.created_at AS post_created_at,
     u.id AS user_id, u.display_name, u.username, u.avatar_r2_key,
     ts.id AS session_id, ts.schema_name_snapshot, ts.started_at, ts.rating, ts.notes, ts.progress_summary,
     cs.id AS cardio_session_id, cs.activity_type AS cardio_activity_type, cs.started_at AS cardio_started_at,
@@ -112,11 +116,15 @@ export async function getFeed(env: Env, userId: number, limit = 30): Promise<{ p
   return { posts: results, likedPostIds: new Set(likedRows.results.map((r) => r.post_id)) };
 }
 
-export async function createPost(
-  env: Env,
-  userId: number,
-  params: { sessionId?: number; cardioSessionId?: number; caption?: string }
-): Promise<number | null> {
+export interface CreatePostParams {
+  sessionId?: number;
+  cardioSessionId?: number;
+  caption?: string;
+  location?: string;
+  photoR2Key?: string;
+}
+
+export async function createPost(env: Env, userId: number, params: CreatePostParams): Promise<number | null> {
   if (params.sessionId) {
     const session = await env.DB.prepare(
       "SELECT id FROM training_sessions WHERE id = ? AND user_id = ? AND finished_at IS NOT NULL"
@@ -128,8 +136,10 @@ export async function createPost(
     const existing = await env.DB.prepare("SELECT id FROM posts WHERE session_id = ?").bind(params.sessionId).first<{ id: number }>();
     if (existing) return existing.id;
 
-    const result = await env.DB.prepare("INSERT INTO posts (user_id, session_id, caption) VALUES (?, ?, ?)")
-      .bind(userId, params.sessionId, params.caption ?? null)
+    const result = await env.DB.prepare(
+      "INSERT INTO posts (user_id, session_id, caption, location, photo_r2_key) VALUES (?, ?, ?, ?, ?)"
+    )
+      .bind(userId, params.sessionId, params.caption ?? null, params.location ?? null, params.photoR2Key ?? null)
       .run();
     return result.meta.last_row_id as number;
   }
@@ -147,8 +157,10 @@ export async function createPost(
       .first<{ id: number }>();
     if (existing) return existing.id;
 
-    const result = await env.DB.prepare("INSERT INTO posts (user_id, cardio_session_id, caption) VALUES (?, ?, ?)")
-      .bind(userId, params.cardioSessionId, params.caption ?? null)
+    const result = await env.DB.prepare(
+      "INSERT INTO posts (user_id, cardio_session_id, caption, location, photo_r2_key) VALUES (?, ?, ?, ?, ?)"
+    )
+      .bind(userId, params.cardioSessionId, params.caption ?? null, params.location ?? null, params.photoR2Key ?? null)
       .run();
     return result.meta.last_row_id as number;
   }

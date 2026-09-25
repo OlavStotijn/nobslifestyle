@@ -1,4 +1,6 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
+import { motion } from "framer-motion";
+import { useTranslation } from "../../i18n/I18nContext";
 
 const ICONS = {
   summary: (
@@ -40,31 +42,36 @@ const ICONS = {
 };
 
 const ITEMS = [
-  { to: "/summary", label: "Summary", icon: ICONS.summary },
-  { to: "/food", label: "Food", icon: ICONS.food },
-  { to: "/workouts", label: "Workout", icon: ICONS.workouts },
-  { to: "/feed", label: "Feed", icon: ICONS.feed },
-  { to: "/profile", label: "Profile", icon: ICONS.profile },
+  { to: "/summary", labelKey: "nav.summary" as const, icon: ICONS.summary },
+  { to: "/food", labelKey: "nav.food" as const, icon: ICONS.food },
+  { to: "/workouts", labelKey: "nav.workout" as const, icon: ICONS.workouts },
+  { to: "/feed", labelKey: "nav.feed" as const, icon: ICONS.feed },
+  { to: "/profile", labelKey: "nav.profile" as const, icon: ICONS.profile },
 ];
 
 export function BottomNav() {
+  const location = useLocation();
+  const { t } = useTranslation();
+
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)]">
       <div className="mx-auto flex max-w-md items-center justify-around px-2 py-2">
-        {ITEMS.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) =>
-              `flex flex-col items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-medium ${
-                isActive ? "text-accent" : "text-ink-muted"
-              }`
-            }
-          >
-            {item.icon}
-            {item.label}
-          </NavLink>
-        ))}
+        {ITEMS.map((item) => {
+          const isActive = location.pathname === item.to;
+          return (
+            <NavLink key={item.to} to={item.to} className="relative flex flex-col items-center gap-1 px-3 py-1.5 text-xs font-medium">
+              {isActive && (
+                <motion.span
+                  layoutId="nav-active-indicator"
+                  className="absolute left-1/2 top-0 h-9 w-9 -translate-x-1/2 rounded-full bg-accent-soft ring-2 ring-accent"
+                  transition={{ type: "spring", stiffness: 500, damping: 32 }}
+                />
+              )}
+              <span className={`relative z-10 transition-colors ${isActive ? "text-accent" : "text-ink-muted"}`}>{item.icon}</span>
+              <span className={`relative z-10 transition-colors ${isActive ? "text-accent" : "text-ink-muted"}`}>{t(item.labelKey)}</span>
+            </NavLink>
+          );
+        })}
       </div>
     </nav>
   );

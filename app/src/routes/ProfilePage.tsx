@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api, ApiError } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useProgressPhotos } from "../api/hooks/useProgressPhotos";
+import { useSchemas } from "../api/hooks/useWorkouts";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { ProgressPhotoGrid } from "../components/ProgressPhotoGrid";
 
@@ -50,6 +51,8 @@ function VerifyEmailBanner() {
 export function ProfilePage() {
   const { user, setUser } = useAuth();
   const { data: photos, isLoading: photosLoading } = useProgressPhotos();
+  const { data: schemas } = useSchemas();
+  const sharedSchemas = (schemas ?? []).filter((s) => s.visibility === "friends");
 
   async function logout() {
     await api.post("/auth/logout");
@@ -88,6 +91,23 @@ export function ProfilePage() {
           <ProgressPhotoGrid photos={photos ?? []} editable />
         )}
       </div>
+
+      {sharedSchemas.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">Shared schemas</h2>
+          <div className="mt-2 flex flex-col gap-2">
+            {sharedSchemas.map((s) => (
+              <Link
+                key={s.id}
+                to={`/workouts/${s.id}/edit`}
+                className="rounded-xl border border-border bg-surface px-4 py-3"
+              >
+                <p className="font-medium text-ink">{s.name}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mt-8 flex flex-1 flex-col gap-2">
         <Link

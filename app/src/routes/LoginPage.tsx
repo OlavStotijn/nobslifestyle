@@ -3,11 +3,13 @@ import { useNavigate, Link } from "react-router-dom";
 import { api, ApiError } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { useTranslation } from "../i18n/I18nContext";
 import type { User } from "../context/AuthContext";
 
 export function LoginPage() {
   const navigate = useNavigate();
   const { setUser } = useAuth();
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -35,12 +37,12 @@ export function LoginPage() {
       </div>
 
       <div className="flex flex-1 flex-col justify-center">
-        <h1 className="text-3xl font-bold text-ink">Welcome back</h1>
-        <p className="mt-2 text-ink-muted">Log in to keep training. No BS.</p>
+        <h1 className="text-3xl font-bold text-ink">{t("auth.welcomeBack")}</h1>
+        <p className="mt-2 text-ink-muted">{t("auth.loginSubtitle")}</p>
 
         <form onSubmit={onSubmit} className="mt-8 flex flex-col gap-4">
           <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-ink-muted">Email</span>
+            <span className="text-sm font-medium text-ink-muted">{t("auth.email")}</span>
             <input
               type="email"
               required
@@ -52,7 +54,7 @@ export function LoginPage() {
           </label>
 
           <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-ink-muted">Password</span>
+            <span className="text-sm font-medium text-ink-muted">{t("auth.password")}</span>
             <input
               type="password"
               required
@@ -70,19 +72,19 @@ export function LoginPage() {
             disabled={submitting}
             className="mt-2 rounded-xl bg-accent px-4 py-3 font-semibold text-white transition-opacity disabled:opacity-50"
           >
-            {submitting ? "Logging in…" : "Log in"}
+            {submitting ? t("auth.loggingIn") : t("auth.login")}
           </button>
         </form>
 
         <p className="mt-6 text-center text-sm text-ink-muted">
-          No account yet?{" "}
+          {t("auth.noAccount")}{" "}
           <Link to="/signup" className="font-medium text-accent">
-            Sign up
+            {t("auth.signup")}
           </Link>
         </p>
         <p className="mt-2 text-center text-sm">
           <Link to="/forgot-password" className="text-ink-muted underline">
-            Forgot password?
+            {t("auth.forgotPassword")}
           </Link>
         </p>
       </div>

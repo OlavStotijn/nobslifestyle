@@ -27,8 +27,12 @@ interface UpdateProfileBody {
   displayName?: string;
   username?: string;
   weightUnit?: "kg" | "lb";
+  distanceUnit?: "km" | "mi";
   defaultLandingPage?: string;
 }
+
+const VALID_WEIGHT_UNITS = ["kg", "lb"];
+const VALID_DISTANCE_UNITS = ["km", "mi"];
 
 profileRoute.patch("/api/profile", async (c) => {
   const userId = c.get("userId");
@@ -45,17 +49,31 @@ profileRoute.patch("/api/profile", async (c) => {
   if (body.defaultLandingPage !== undefined && !isValidLandingPage(body.defaultLandingPage)) {
     return c.json({ error: "Invalid defaultLandingPage." }, 422);
   }
+  if (body.weightUnit !== undefined && !VALID_WEIGHT_UNITS.includes(body.weightUnit)) {
+    return c.json({ error: "Invalid weightUnit." }, 422);
+  }
+  if (body.distanceUnit !== undefined && !VALID_DISTANCE_UNITS.includes(body.distanceUnit)) {
+    return c.json({ error: "Invalid distanceUnit." }, 422);
+  }
 
   await c.env.DB.prepare(
     `UPDATE users SET
        display_name = COALESCE(?, display_name),
        username = COALESCE(?, username),
        weight_unit = COALESCE(?, weight_unit),
+       distance_unit = COALESCE(?, distance_unit),
        default_landing_page = COALESCE(?, default_landing_page),
        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
      WHERE id = ?`
   )
-    .bind(body.displayName ?? null, body.username ?? null, body.weightUnit ?? null, body.defaultLandingPage ?? null, userId)
+    .bind(
+      body.displayName ?? null,
+      body.username ?? null,
+      body.weightUnit ?? null,
+      body.distanceUnit ?? null,
+      body.defaultLandingPage ?? null,
+      userId
+    )
     .run();
 
   const user = await getUserById(c.env, userId);

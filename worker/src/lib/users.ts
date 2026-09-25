@@ -11,6 +11,7 @@ export interface UserRow {
   username: string | null;
   avatar_r2_key: string | null;
   weight_unit: "kg" | "lb";
+  distance_unit: "km" | "mi";
   default_landing_page: string;
   token_version: number;
   email_verified_at: string | null;
@@ -25,6 +26,7 @@ export function publicUser(u: UserRow) {
     username: u.username,
     avatarUrl: u.avatar_r2_key ? `/api/media/${u.avatar_r2_key}` : null,
     weightUnit: u.weight_unit,
+    distanceUnit: u.distance_unit,
     defaultLandingPage: (VALID_LANDING_PAGES.includes(u.default_landing_page as LandingPage)
       ? u.default_landing_page
       : "summary") as LandingPage,

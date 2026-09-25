@@ -11,7 +11,8 @@ import {
 import { WeightStepper } from "../components/WeightStepper";
 import { BottomSheet } from "../components/BottomSheet";
 import { ProgressBadge } from "../components/ProgressBadge";
-import { useCreatePost } from "../api/hooks/useSocial";
+import { PostComposer } from "../components/PostComposer";
+import { useUnits } from "../lib/useUnits";
 
 function lastLoggedWeight(exercise: SessionExercise): number {
   if (exercise.sets.length === 0) return exercise.targetWeightKg;
@@ -29,6 +30,7 @@ function ExerciseRunner({
 }) {
   const addSet = useAddSet(sessionId);
   const applyWeight = useApplyWeight(sessionId);
+  const { formatWeight, weightLabel } = useUnits();
   const [reps, setReps] = useState(exercise.targetRepsMin);
   const [weight, setWeight] = useState(lastLoggedWeight(exercise));
   const [showWeightPrompt, setShowWeightPrompt] = useState(false);
@@ -57,7 +59,9 @@ function ExerciseRunner({
       <div className="rounded-2xl border border-border bg-surface p-6 text-center">
         <h2 className="text-xl font-bold text-ink">{exercise.exerciseName}</h2>
         <p className="mt-1 text-sm text-ink-muted">
-          Target: {exercise.targetSets} × {exercise.targetRepsMin}-{exercise.targetRepsMax} @ {exercise.targetWeightKg}kg
+          Target: {exercise.targetSets} × {exercise.targetRepsMin}-{exercise.targetRepsMax} @{" "}
+          {formatWeight(exercise.targetWeightKg)}
+          {weightLabel}
         </p>
         <p className="mt-1 text-sm text-accent">
           Set {Math.min(setsLogged + 1, exercise.targetSets)} of {exercise.targetSets}
@@ -65,7 +69,7 @@ function ExerciseRunner({
       </div>
 
       <div className="mt-6">
-        <WeightStepper value={weight} onChange={setWeight} />
+        <WeightStepper valueKg={weight} onChangeKg={setWeight} />
       </div>
 
       <div className="mt-6 flex items-center justify-center gap-4">
@@ -102,16 +106,21 @@ function ExerciseRunner({
         <div className="mt-4 flex flex-col gap-1">
           {exercise.sets.map((s) => (
             <p key={s.id} className="text-sm text-ink-muted">
-              Set {s.setNumber}: {s.reps} reps @ {s.weightKg}kg
+              Set {s.setNumber}: {s.reps} reps @ {formatWeight(s.weightKg)}
+              {weightLabel}
             </p>
           ))}
         </div>
       )}
 
       <BottomSheet open={showWeightPrompt} onClose={() => setShowWeightPrompt(false)}>
-        <h3 className="text-lg font-bold text-ink">Use {weight}kg going forward?</h3>
+        <h3 className="text-lg font-bold text-ink">
+          Use {formatWeight(weight)}
+          {weightLabel} going forward?
+        </h3>
         <p className="mt-1 text-sm text-ink-muted">
-          That's different from this schema's target of {exercise.targetWeightKg}kg.
+          That's different from this schema's target of {formatWeight(exercise.targetWeightKg)}
+          {weightLabel}.
         </p>
         <div className="mt-4 flex flex-col gap-2">
           <button
@@ -137,9 +146,7 @@ function ExerciseRunner({
 function FinishedSummary({ sessionId }: { sessionId: number }) {
   const { data: session } = useSession(sessionId);
   const saveAsSchema = useSaveSessionAsSchema(sessionId);
-  const createPost = useCreatePost();
   const [savedSchemaId, setSavedSchemaId] = useState<number | null>(null);
-  const [posted, setPosted] = useState(false);
 
   if (!session) return null;
 
@@ -147,11 +154,6 @@ function FinishedSummary({ sessionId }: { sessionId: number }) {
     const name = `${session!.schemaName} (updated)`;
     const res = await saveAsSchema.mutateAsync(name);
     setSavedSchemaId(res.schemaId);
-  }
-
-  async function handlePost() {
-    await createPost.mutateAsync({ sessionId });
-    setPosted(true);
   }
 
   return (
@@ -186,14 +188,7 @@ function FinishedSummary({ sessionId }: { sessionId: number }) {
             {saveAsSchema.isPending ? "Saving…" : "Save as new schema"}
           </button>
         )}
-        <button
-          type="button"
-          onClick={handlePost}
-          disabled={posted || createPost.isPending}
-          className="rounded-xl border border-border px-4 py-3 font-semibold text-ink transition-opacity disabled:opacity-50"
-        >
-          {posted ? "Posted to friends ✓" : createPost.isPending ? "Posting…" : "Post to friends"}
-        </button>
+        <PostComposer sessionId={sessionId} />
         <Link to={`/sessions/${sessionId}/share`} className="rounded-xl border border-border px-4 py-3 font-semibold text-ink">
           Share photo
         </Link>
