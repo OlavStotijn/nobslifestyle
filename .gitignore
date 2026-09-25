@@ -13,3 +13,4 @@ app/android/build/
 app/android/local.properties
 *.log
 .DS_Store
+*.tsbuildinfo
