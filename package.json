@@ -1,0 +1,25 @@
+{
+  "name": "nobslifestyle-worker",
+  "version": "1.0.0",
+  "description": "NoBSLifestyle.com API + asset-serving Worker",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev --port 8787 --persist-to ../nobslifestyle-local-state",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "db:migrate:local": "wrangler d1 execute nobslifestyle --local --file=./db/schema.sql",
+    "db:migrate:remote": "wrangler d1 execute nobslifestyle --remote --file=./db/schema.sql",
+    "db:seed:local": "wrangler d1 execute nobslifestyle --local --file=./db/seed_exercises.sql",
+    "db:seed:remote": "wrangler d1 execute nobslifestyle --remote --file=./db/seed_exercises.sql"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "hono": "^4.13.8"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260922.1",
+    "@types/bcryptjs": "^2.4.6",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.136.3"
+  }
+}

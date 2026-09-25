@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+
+  --color-bg: #f8f8f8;
+  --color-surface: #ffffff;
+  --color-surface-2: #efefef;
+  --color-border: #e2e2e2;
+  --color-text: #0f0f0f;
+  --color-text-muted: #6b6f6b;
+
+  /* Darker green on the light background keeps AA contrast on white. */
+  --color-accent: #337418;
+  --color-accent-strong: #2a5e13;
+  --color-accent-soft: #e8f5e1;
+}
+
+:root.dark {
+  color-scheme: dark;
+
+  --color-bg: #0f0f0f;
+  --color-surface: #202020;
+  --color-surface-2: #2a2a2a;
+  --color-border: #333333;
+  --color-text: #f8f8f8;
+  --color-text-muted: #9a9d9a;
+
+  /* Bright green pops on the near-black background. */
+  --color-accent: #5dd62c;
+  --color-accent-strong: #74e846;
+  --color-accent-soft: #1a2e10;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  overscroll-behavior-y: none;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+/* Smooth light/dark transition: every element that reads a themed CSS
+   variable gets its color-affecting properties animated. Scoped to these
+   properties (not `transition: all`) so layout/transform animations
+   elsewhere stay unaffected. Disabled for prefers-reduced-motion users. */
+*,
+*::before,
+*::after {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+  transition-timing-function: ease;
+  transition-duration: 300ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms;
+  }
+}

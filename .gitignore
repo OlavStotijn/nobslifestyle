@@ -1,0 +1,15 @@
+node_modules/
+.dev.vars
+.wrangler/
+nobslifestyle-local-state/
+app/dist/
+app/node_modules/
+app/ios/App/Pods/
+app/ios/App/build/
+app/ios/DerivedData/
+app/android/.gradle/
+app/android/app/build/
+app/android/build/
+app/android/local.properties
+*.log
+.DS_Store
