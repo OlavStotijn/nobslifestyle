@@ -15,15 +15,22 @@ socialRoute.get("/api/feed", async (c) => {
 });
 
 interface CreatePostBody {
-  sessionId: number;
+  sessionId?: number;
+  cardioSessionId?: number;
   caption?: string;
 }
 
 socialRoute.post("/api/posts", async (c) => {
   const body = await c.req.json<Partial<CreatePostBody>>().catch(() => null);
-  if (!body?.sessionId) return c.json({ error: "sessionId is required." }, 422);
+  if (!body?.sessionId && !body?.cardioSessionId) {
+    return c.json({ error: "sessionId or cardioSessionId is required." }, 422);
+  }
 
-  const postId = await createPost(c.env, c.get("userId"), body.sessionId, body.caption);
+  const postId = await createPost(c.env, c.get("userId"), {
+    sessionId: body.sessionId,
+    cardioSessionId: body.cardioSessionId,
+    caption: body.caption,
+  });
   if (!postId) return c.json({ error: "Session not found or not finished yet." }, 422);
   return c.json({ postId }, 201);
 });

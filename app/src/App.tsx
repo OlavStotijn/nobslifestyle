@@ -14,6 +14,7 @@ import { WorkoutsPage } from "./routes/WorkoutsPage";
 import { NewSchemaPage } from "./routes/NewSchemaPage";
 import { SchemaEditPage } from "./routes/SchemaEditPage";
 import { SessionRunnerPage } from "./routes/SessionRunnerPage";
+import { CardioSessionPage } from "./routes/CardioSessionPage";
 import { FriendsPage } from "./routes/FriendsPage";
 import { AddFriendPage } from "./routes/AddFriendPage";
 import { FriendProfilePage } from "./routes/FriendProfilePage";
@@ -44,6 +45,7 @@ export default function App() {
         <Route path="/workouts/new" element={<NewSchemaPage />} />
         <Route path="/workouts/:id/edit" element={<SchemaEditPage />} />
         <Route path="/sessions/:id" element={<SessionRunnerPage />} />
+        <Route path="/cardio/:activityType" element={<CardioSessionPage />} />
         <Route path="/friends" element={<FriendsPage />} />
         <Route path="/friends/add" element={<AddFriendPage />} />
         <Route path="/friends/:id" element={<FriendProfilePage />} />

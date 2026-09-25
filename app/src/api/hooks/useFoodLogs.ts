@@ -40,6 +40,7 @@ export interface DailySummary {
   protein: number;
   carbs: number;
   fat: number;
+  burnedKcal: number;
 }
 
 export function todayLocalDate(): string {

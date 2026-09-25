@@ -20,6 +20,8 @@ export function SummaryPage() {
   }
 
   const consumed = summary?.calories ?? 0;
+  const burned = summary?.burnedKcal ?? 0;
+  const target = profile.targetKcal + burned;
 
   return (
     <div className="flex min-h-full flex-col bg-bg px-6 py-8">
@@ -32,9 +34,9 @@ export function SummaryPage() {
       </div>
 
       <Link to="/food" className="mt-8 flex flex-col items-center rounded-2xl border border-border bg-surface p-6">
-        <StatRing value={consumed} target={profile.targetKcal} label="kcal left" />
+        <StatRing value={consumed} target={target} label="kcal left" />
         <p className="mt-3 text-sm text-ink-muted">
-          {consumed} / {profile.targetKcal} kcal eaten today
+          {consumed} / {target} kcal eaten today{burned > 0 ? ` (+${burned} from activity)` : ""}
         </p>
       </Link>
 

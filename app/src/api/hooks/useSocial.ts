@@ -20,11 +20,17 @@ export interface FriendRequest {
   user: PublicUser;
 }
 
-export interface FeedPost {
+interface FeedPostBase {
   postId: number;
   caption: string | null;
   createdAt: string;
   user: PublicUser;
+  likeCount: number;
+  likedByMe: boolean;
+}
+
+export interface StrengthFeedPost extends FeedPostBase {
+  type: "strength";
   session: {
     id: number;
     schemaName: string;
@@ -33,9 +39,23 @@ export interface FeedPost {
     notes: string | null;
     progressSummary: { sessionBadge: Badge } | null;
   };
-  likeCount: number;
-  likedByMe: boolean;
 }
+
+export interface CardioFeedPost extends FeedPostBase {
+  type: "cardio";
+  cardio: {
+    id: number;
+    activityType: "running" | "cycling";
+    startedAt: string;
+    distanceM: number;
+    durationS: number;
+    calories: number;
+    rating: number | null;
+    notes: string | null;
+  };
+}
+
+export type FeedPost = StrengthFeedPost | CardioFeedPost;
 
 export function useFriends() {
   return useQuery({ queryKey: ["friends"], queryFn: () => api.get<{ friends: Friend[] }>("/friends").then((r) => r.friends) });
@@ -81,7 +101,8 @@ export function useFeed() {
 export function useCreatePost() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { sessionId: number; caption?: string }) => api.post<{ postId: number }>("/posts", input),
+    mutationFn: (input: { sessionId?: number; cardioSessionId?: number; caption?: string }) =>
+      api.post<{ postId: number }>("/posts", input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["feed"] }),
   });
 }

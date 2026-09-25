@@ -10,6 +10,7 @@ import { sessionsRoute } from "./routes/sessions";
 import { friendsRoute } from "./routes/friends";
 import { socialRoute } from "./routes/social";
 import { progressPhotosRoute } from "./routes/progressPhotos";
+import { cardioRoute } from "./routes/cardio";
 
 const app = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
 
@@ -24,6 +25,7 @@ app.route("/", sessionsRoute);
 app.route("/", friendsRoute);
 app.route("/", socialRoute);
 app.route("/", progressPhotosRoute);
+app.route("/", cardioRoute);
 
 // wrangler's `run_worker_first: ["/api/*"]` sends every /api/* request here
 // and lets the assets binding serve everything else (including the SPA's

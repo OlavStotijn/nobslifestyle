@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useFeed, useFriendRequests, useToggleLike, type FeedPost } from "../api/hooks/useSocial";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { formatDistance, formatDuration, formatPace, formatSpeed } from "../lib/geo";
 
 const BADGE_LABEL: Record<string, string> = { pr: "PR", progress: "Progress", on_target: "On target", regression: "Down" };
 const BADGE_CLASS: Record<string, string> = {
@@ -9,6 +10,15 @@ const BADGE_CLASS: Record<string, string> = {
   on_target: "bg-surface-2 text-ink-muted",
   regression: "bg-red-500/15 text-red-500",
 };
+
+function StarRow({ rating }: { rating: number }) {
+  return (
+    <p className="mt-1 text-sm text-ink-muted">
+      {"★".repeat(rating)}
+      {"☆".repeat(5 - rating)}
+    </p>
+  );
+}
 
 function PostCard({ post }: { post: FeedPost }) {
   const toggleLike = useToggleLike();
@@ -20,22 +30,50 @@ function PostCard({ post }: { post: FeedPost }) {
           <p className="font-medium text-ink">{post.user.displayName}</p>
           <p className="text-xs text-ink-muted">{new Date(post.createdAt).toLocaleString()}</p>
         </div>
-        {post.session.progressSummary && (
+        {post.type === "strength" && post.session.progressSummary && (
           <span
             className={`rounded-full px-3 py-1 text-xs font-semibold ${BADGE_CLASS[post.session.progressSummary.sessionBadge]}`}
           >
             {BADGE_LABEL[post.session.progressSummary.sessionBadge]}
           </span>
         )}
+        {post.type === "cardio" && (
+          <span className="rounded-full bg-surface-2 px-3 py-1 text-xs font-semibold text-ink-muted">
+            {post.cardio.activityType === "running" ? "Run" : "Ride"}
+          </span>
+        )}
       </div>
 
-      <p className="mt-3 font-medium text-ink">{post.session.schemaName}</p>
-      {post.caption && <p className="mt-1 text-ink-muted">{post.caption}</p>}
-      {post.session.rating && (
-        <p className="mt-1 text-sm text-ink-muted">
-          {"★".repeat(post.session.rating)}
-          {"☆".repeat(5 - post.session.rating)}
-        </p>
+      {post.type === "strength" ? (
+        <>
+          <p className="mt-3 font-medium text-ink">{post.session.schemaName}</p>
+          {post.caption && <p className="mt-1 text-ink-muted">{post.caption}</p>}
+          {post.session.rating && <StarRow rating={post.session.rating} />}
+        </>
+      ) : (
+        <>
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            <div>
+              <p className="text-lg font-semibold text-ink">{formatDistance(post.cardio.distanceM)}</p>
+              <p className="text-xs text-ink-muted">km</p>
+            </div>
+            <div>
+              <p className="text-lg font-semibold text-ink">{formatDuration(post.cardio.durationS)}</p>
+              <p className="text-xs text-ink-muted">time</p>
+            </div>
+            <div>
+              <p className="text-lg font-semibold text-ink">
+                {post.cardio.activityType === "running"
+                  ? formatPace(post.cardio.distanceM, post.cardio.durationS)
+                  : formatSpeed(post.cardio.distanceM, post.cardio.durationS)}
+              </p>
+              <p className="text-xs text-ink-muted">{post.cardio.activityType === "running" ? "pace" : "speed"}</p>
+            </div>
+          </div>
+          <p className="mt-2 text-sm text-ink-muted">{post.cardio.calories} kcal burned</p>
+          {post.caption && <p className="mt-1 text-ink-muted">{post.caption}</p>}
+          {post.cardio.rating && <StarRow rating={post.cardio.rating} />}
+        </>
       )}
 
       <button

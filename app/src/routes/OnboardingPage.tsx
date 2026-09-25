@@ -99,6 +99,10 @@ export function OnboardingPage() {
     setStepIndex((i) => Math.min(i + 1, STEP_ORDER.length - 1));
   }
 
+  function goBack() {
+    setStepIndex((i) => Math.max(i - 1, 0));
+  }
+
   async function submit() {
     if (!sex || !activityLevel || !goal) return;
     setError(null);
@@ -121,6 +125,13 @@ export function OnboardingPage() {
   return (
     <div className="flex min-h-full flex-col bg-bg px-6 py-8">
       <div className="flex items-center justify-between">
+        {stepIndex > 0 && step !== "summary" ? (
+          <button type="button" onClick={goBack} className="text-sm text-ink-muted">
+            ← Back
+          </button>
+        ) : (
+          <span />
+        )}
         <div className="flex gap-1.5">
           {STEP_ORDER.slice(0, -1).map((s, i) => (
             <span

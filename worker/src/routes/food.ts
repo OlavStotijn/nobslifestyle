@@ -14,6 +14,7 @@ import {
 } from "../lib/foodLogs";
 import type { MealType } from "../lib/time";
 import { extractNutritionFromLabel } from "../lib/ocr";
+import { getBurnedKcalForDate } from "../lib/cardioSessions";
 
 export const foodRoute = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
 
@@ -123,8 +124,9 @@ foodRoute.get("/api/food/logs", async (c) => {
 
 foodRoute.get("/api/food/logs/summary", async (c) => {
   const date = todayFallback(c.req.query("date"));
-  const summary = await getDailySummary(c.env, c.get("userId"), date);
-  return c.json({ date, summary });
+  const userId = c.get("userId");
+  const [summary, burnedKcal] = await Promise.all([getDailySummary(c.env, userId, date), getBurnedKcalForDate(c.env, userId, date)]);
+  return c.json({ date, summary: { ...summary, burnedKcal } });
 });
 
 interface CreateFoodLogBody {
