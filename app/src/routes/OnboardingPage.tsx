@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
 import {
   useSaveNutritionProfile,
@@ -8,6 +8,7 @@ import {
   type NutritionProfile,
   type Sex,
 } from "../api/hooks/useNutritionProfile";
+import { useAuth } from "../context/AuthContext";
 import { ThemeToggle } from "../components/ThemeToggle";
 
 type Step = "sex" | "birthDate" | "height" | "weight" | "activity" | "goal" | "summary";
@@ -75,6 +76,7 @@ function StepShell({
 
 export function OnboardingPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [stepIndex, setStepIndex] = useState(0);
   const step = STEP_ORDER[stepIndex];
 
@@ -88,6 +90,10 @@ export function OnboardingPage() {
   const [error, setError] = useState<string | null>(null);
 
   const saveMutation = useSaveNutritionProfile();
+
+  if (!user?.emailVerified) {
+    return <Navigate to="/verify-email-required" replace />;
+  }
 
   function goNext() {
     setStepIndex((i) => Math.min(i + 1, STEP_ORDER.length - 1));

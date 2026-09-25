@@ -4,6 +4,7 @@ import { SignupPage } from "./routes/SignupPage";
 import { ForgotPasswordPage } from "./routes/ForgotPasswordPage";
 import { ResetPasswordPage } from "./routes/ResetPasswordPage";
 import { VerifyEmailPage } from "./routes/VerifyEmailPage";
+import { VerifyEmailRequiredPage } from "./routes/VerifyEmailRequiredPage";
 import { RootRedirectPage } from "./routes/RootRedirectPage";
 import { SummaryPage } from "./routes/SummaryPage";
 import { OnboardingPage } from "./routes/OnboardingPage";
@@ -37,6 +38,7 @@ export default function App() {
 
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<RootRedirectPage />} />
+        <Route path="/verify-email-required" element={<VerifyEmailRequiredPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/food/add" element={<AddFoodPage />} />
         <Route path="/workouts/new" element={<NewSchemaPage />} />

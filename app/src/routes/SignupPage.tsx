@@ -28,7 +28,7 @@ export function SignupPage() {
         turnstileToken,
       });
       setUser(user);
-      navigate("/onboarding");
+      navigate("/");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong.");
     } finally {
