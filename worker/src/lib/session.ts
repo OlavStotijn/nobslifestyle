@@ -41,21 +41,53 @@ function secureFlag(env: Env): string {
   return env.ENVIRONMENT === "development" ? "" : " Secure;";
 }
 
+// Host-only by default (no Domain=), which would NOT share the cookie
+// between nobslifestyle.com and admin.nobslifestyle.com — needed so an
+// impersonation session started from the admin subdomain carries over when
+// the browser is sent to the main app. Skipped in dev (localhost has no
+// meaningful subdomain to share with).
+function cookieDomain(env: Env): string {
+  if (env.ENVIRONMENT === "development") return "";
+  try {
+    return `; Domain=.${new URL(env.APP_URL).hostname}`;
+  } catch {
+    return "";
+  }
+}
+
 export interface SessionPayload {
   userId: number;
   tokenVersion: number;
   exp: number;
+  // Set only on an impersonation session: the real admin's user id, so
+  // "return to admin" can restore their session and the frontend can show
+  // a "Viewing as X" banner. Absent on every normal session.
+  impersonatedBy?: number;
 }
 
-export async function makeSessionCookie(env: Env, userId: number, tokenVersion: number): Promise<string> {
-  const exp = Date.now() + TTL_SECONDS * 1000;
-  const payload = b64url(new TextEncoder().encode(JSON.stringify({ userId, tokenVersion, exp })));
+export interface MakeSessionCookieOptions {
+  impersonatedBy?: number;
+  ttlSeconds?: number;
+}
+
+export async function makeSessionCookie(
+  env: Env,
+  userId: number,
+  tokenVersion: number,
+  opts?: MakeSessionCookieOptions
+): Promise<string> {
+  const ttlSeconds = opts?.ttlSeconds ?? TTL_SECONDS;
+  const exp = Date.now() + ttlSeconds * 1000;
+  const payloadObj: SessionPayload = { userId, tokenVersion, exp };
+  if (opts?.impersonatedBy != null) payloadObj.impersonatedBy = opts.impersonatedBy;
+
+  const payload = b64url(new TextEncoder().encode(JSON.stringify(payloadObj)));
   const sig = await sign(payload, env.SESSION_SECRET);
-  return `${COOKIE_NAME}=${payload}.${sig}; Path=/; Max-Age=${TTL_SECONDS}; HttpOnly;${secureFlag(env)} SameSite=Lax`;
+  return `${COOKIE_NAME}=${payload}.${sig}; Path=/; Max-Age=${ttlSeconds}; HttpOnly;${secureFlag(env)}${cookieDomain(env)} SameSite=Lax`;
 }
 
 export function clearSessionCookie(env: Env): string {
-  return `${COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly;${secureFlag(env)} SameSite=Lax`;
+  return `${COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly;${secureFlag(env)}${cookieDomain(env)} SameSite=Lax`;
 }
 
 function getCookie(cookieHeader: string | null, name: string): string | null {

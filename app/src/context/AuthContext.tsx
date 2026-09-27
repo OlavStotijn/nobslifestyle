@@ -15,10 +15,20 @@ export interface User {
   restTimerSeconds: number;
   activeProgramId: number | null;
   emailVerified: boolean;
+  // Only ever present (and only ever accurate) on the /auth/me response —
+  // login/signup/profile-update responses don't resolve it, which is why
+  // those flows call refresh() rather than trusting their own payload.
+  isAdmin?: boolean;
+}
+
+export interface Impersonating {
+  adminUserId: number;
+  adminDisplayName: string;
 }
 
 interface AuthContextValue {
   user: User | null;
+  impersonating: Impersonating | null;
   loading: boolean;
   refresh: () => Promise<void>;
   setUser: (user: User | null) => void;
@@ -28,15 +38,18 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [impersonating, setImpersonating] = useState<Impersonating | null>(null);
   const [loading, setLoading] = useState(true);
 
   async function refresh() {
     try {
-      const { user } = await api.get<{ user: User }>("/auth/me");
+      const { user, impersonating } = await api.get<{ user: User; impersonating: Impersonating | null }>("/auth/me");
       setUser(user);
+      setImpersonating(impersonating);
     } catch (err) {
       if (!(err instanceof ApiError && err.status === 401)) console.error(err);
       setUser(null);
+      setImpersonating(null);
     } finally {
       setLoading(false);
     }
@@ -46,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refresh();
   }, []);
 
-  return <AuthContext.Provider value={{ user, loading, refresh, setUser }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, impersonating, loading, refresh, setUser }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextValue {

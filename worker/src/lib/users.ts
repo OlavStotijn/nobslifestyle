@@ -17,6 +17,8 @@ export interface UserRow {
   active_program_id: number | null;
   token_version: number;
   email_verified_at: string | null;
+  suspended_at: string | null;
+  last_seen_at: string | null;
   created_at: string;
 }
 

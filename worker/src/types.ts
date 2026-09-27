@@ -22,4 +22,8 @@ export interface Env {
   GOOGLE_CLIENT_ID_ANDROID: string;
   APPLE_SERVICES_ID: string;
   APPLE_BUNDLE_ID: string;
+  // The one account allowed into the admin panel (admin.nobslifestyle.com).
+  // Not a secret — knowing the email doesn't grant access, the account still
+  // needs its password/OAuth — so it lives in `vars` like MAIL_FROM_ADDRESS.
+  ADMIN_EMAIL: string;
 }

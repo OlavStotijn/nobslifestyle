@@ -4,7 +4,6 @@ import { api, ApiError } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "../i18n/I18nContext";
 import { signInWithApple, signInWithGoogle } from "../lib/socialLogin";
-import type { User } from "../context/AuthContext";
 
 interface OAuthButtonsProps {
   onError: (message: string) => void;
@@ -12,7 +11,7 @@ interface OAuthButtonsProps {
 
 export function OAuthButtons({ onError }: OAuthButtonsProps) {
   const navigate = useNavigate();
-  const { setUser } = useAuth();
+  const { refresh } = useAuth();
   const { t } = useTranslation();
   const [pending, setPending] = useState<"google" | "apple" | null>(null);
 
@@ -21,8 +20,8 @@ export function OAuthButtons({ onError }: OAuthButtonsProps) {
     setPending("google");
     try {
       const { idToken } = await signInWithGoogle();
-      const { user } = await api.post<{ user: User }>("/auth/oauth/google", { idToken });
-      setUser(user);
+      await api.post("/auth/oauth/google", { idToken });
+      await refresh();
       navigate("/");
     } catch (err) {
       onError(err instanceof ApiError ? err.message : "Google sign-in failed.");
@@ -36,8 +35,8 @@ export function OAuthButtons({ onError }: OAuthButtonsProps) {
     setPending("apple");
     try {
       const { idToken, fullName } = await signInWithApple();
-      const { user } = await api.post<{ user: User }>("/auth/oauth/apple", { idToken, fullName });
-      setUser(user);
+      await api.post("/auth/oauth/apple", { idToken, fullName });
+      await refresh();
       navigate("/");
     } catch (err) {
       onError(err instanceof ApiError ? err.message : "Apple sign-in failed.");

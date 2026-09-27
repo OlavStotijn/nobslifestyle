@@ -13,7 +13,8 @@
   },
   "routes": [
     { "pattern": "nobslifestyle.com", "custom_domain": true },
-    { "pattern": "www.nobslifestyle.com", "custom_domain": true }
+    { "pattern": "www.nobslifestyle.com", "custom_domain": true },
+    { "pattern": "admin.nobslifestyle.com", "custom_domain": true }
   ],
   "vars": {
     "ENVIRONMENT": "production",
@@ -31,7 +32,8 @@
     "GOOGLE_CLIENT_ID_IOS": "",
     "GOOGLE_CLIENT_ID_ANDROID": "",
     "APPLE_SERVICES_ID": "",
-    "APPLE_BUNDLE_ID": "com.nobslifestyle.app"
+    "APPLE_BUNDLE_ID": "com.nobslifestyle.app",
+    "ADMIN_EMAIL": "olavstotijn@gmail.com"
   },
   "d1_databases": [
     {

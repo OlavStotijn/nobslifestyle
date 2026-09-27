@@ -118,6 +118,9 @@ authRoute.post("/api/auth/login", async (c) => {
     await hit(c.env, "login", ip, 15 * 60 * 1000);
     return c.json({ error: "Invalid email or password." }, 401);
   }
+  if (user.suspended_at) {
+    return c.json({ error: "This account has been suspended." }, 403);
+  }
 
   await clear(c.env, "login", ip);
   const cookie = await makeSessionCookie(c.env, user.id, user.token_version);
@@ -262,7 +265,17 @@ authRoute.post("/api/auth/logout", async (c) => {
 authRoute.get("/api/auth/me", requireAuth, async (c) => {
   const user = await getUserById(c.env, c.get("userId"));
   if (!user) return c.json({ error: "Not found." }, 404);
-  return c.json({ user: publicUser(user) });
+
+  const isAdmin = user.email.toLowerCase() === c.env.ADMIN_EMAIL.toLowerCase();
+
+  const impersonatedBy = c.get("impersonatedBy");
+  let impersonating: { adminUserId: number; adminDisplayName: string } | null = null;
+  if (impersonatedBy != null) {
+    const admin = await getUserById(c.env, impersonatedBy);
+    if (admin) impersonating = { adminUserId: admin.id, adminDisplayName: admin.display_name };
+  }
+
+  return c.json({ user: { ...publicUser(user), isAdmin }, impersonating });
 });
 
 interface ForgotPasswordBody {

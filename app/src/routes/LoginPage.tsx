@@ -5,11 +5,10 @@ import { useAuth } from "../context/AuthContext";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { OAuthButtons } from "../components/OAuthButtons";
 import { useTranslation } from "../i18n/I18nContext";
-import type { User } from "../context/AuthContext";
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { setUser } = useAuth();
+  const { refresh } = useAuth();
   const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -21,8 +20,11 @@ export function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const { user } = await api.post<{ user: User }>("/auth/login", { email, password });
-      setUser(user);
+      await api.post("/auth/login", { email, password });
+      // Refetch via /auth/me rather than trusting the login response
+      // directly — /auth/me is the one endpoint that also resolves
+      // isAdmin/impersonating, which the admin panel depends on.
+      await refresh();
       navigate("/");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong.");

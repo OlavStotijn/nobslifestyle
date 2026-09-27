@@ -6,11 +6,10 @@ import { ThemeToggle } from "../components/ThemeToggle";
 import { TurnstileWidget } from "../components/TurnstileWidget";
 import { OAuthButtons } from "../components/OAuthButtons";
 import { useTranslation } from "../i18n/I18nContext";
-import type { User } from "../context/AuthContext";
 
 export function SignupPage() {
   const navigate = useNavigate();
-  const { setUser } = useAuth();
+  const { refresh } = useAuth();
   const { t } = useTranslation();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
@@ -24,13 +23,8 @@ export function SignupPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const { user } = await api.post<{ user: User }>("/auth/signup", {
-        email,
-        password,
-        displayName,
-        turnstileToken,
-      });
-      setUser(user);
+      await api.post("/auth/signup", { email, password, displayName, turnstileToken });
+      await refresh();
       navigate("/");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong.");

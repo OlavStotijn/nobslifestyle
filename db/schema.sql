@@ -20,6 +20,8 @@ CREATE TABLE users (
   active_program_id  INTEGER,
   token_version      INTEGER NOT NULL DEFAULT 1,
   email_verified_at  TEXT,
+  suspended_at       TEXT,
+  last_seen_at       TEXT,
   created_at         TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   updated_at         TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
@@ -457,3 +459,20 @@ CREATE TABLE checklist_snapshots (
   UNIQUE (user_id, snapshot_date_local)
 );
 CREATE INDEX idx_checklist_snapshots_user ON checklist_snapshots (user_id, created_at DESC);
+
+-- ============================================================
+-- Phase 12: Admin panel
+-- ============================================================
+
+CREATE TABLE admin_audit_log (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  admin_user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  action           TEXT    NOT NULL CHECK (action IN (
+                     'impersonate_start','impersonate_end','suspend_user','reactivate_user',
+                     'delete_user','moderation_remove'
+                   )),
+  target_user_id   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  details          TEXT,
+  created_at       TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX idx_admin_audit_log_created ON admin_audit_log (created_at DESC);

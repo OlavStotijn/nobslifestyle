@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { BottomNav } from "./BottomNav";
+import { ImpersonationBanner } from "../ImpersonationBanner";
 
 // Wraps the five main tab sections only — focused flows (onboarding, the
 // session runner, schema editing, adding food/friends) render full-screen
@@ -13,6 +14,7 @@ export function AppLayout() {
 
   return (
     <div className="pb-20">
+      <ImpersonationBanner />
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={location.pathname}
