@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { api, ApiError } from "../api/client";
 
-export type LandingPage = "summary" | "food" | "workouts" | "feed" | "profile";
+export type LandingPage = "checklist" | "food" | "workouts" | "reports" | "feed" | "profile";
 
 export interface User {
   id: number;

@@ -2,7 +2,14 @@ import type { Env } from "../types";
 import { listSubscriptionsForUser, deleteSubscriptionByEndpoint } from "./pushSubscriptions";
 import { sendWebPush } from "./webPush";
 
-export type NotificationType = "friend_request" | "friend_accepted" | "post_comment" | "post_like";
+export type NotificationType =
+  | "friend_request"
+  | "friend_accepted"
+  | "post_comment"
+  | "post_like"
+  | "checklist_invite"
+  | "checklist_accepted"
+  | "checklist_reminder";
 
 export interface NotificationRow {
   id: number;

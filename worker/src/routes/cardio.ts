@@ -6,12 +6,14 @@ import {
   createCardioSession,
   deleteCardioSession,
   getCardioSessionOwned,
+  getCardioTrend,
   listCardioSessions,
   listCardioSessionsForDate,
   publicCardioSession,
   updateCardioSession,
   type ActivityType,
 } from "../lib/cardioSessions";
+import { getNutritionProfile } from "../lib/nutritionProfile";
 
 export const cardioRoute = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
 
@@ -28,6 +30,15 @@ cardioRoute.get("/api/cardio-sessions", async (c) => {
   }
   const sessions = await listCardioSessions(c.env, c.get("userId"));
   return c.json({ sessions: sessions.map(publicCardioSession) });
+});
+
+// Registered before /:id so "reports" isn't swallowed as a session id param.
+cardioRoute.get("/api/cardio-sessions/reports", async (c) => {
+  const userId = c.get("userId");
+  const weeks = Math.min(52, Math.max(1, Number(c.req.query("weeks")) || 12));
+  const profile = await getNutritionProfile(c.env, userId);
+  const trend = await getCardioTrend(c.env, userId, profile?.timezone ?? "Europe/Amsterdam", weeks);
+  return c.json({ trend });
 });
 
 cardioRoute.get("/api/cardio-sessions/:id", async (c) => {

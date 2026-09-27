@@ -1,6 +1,6 @@
 import type { Env } from "../types";
 import { getFoodItemById } from "./foodItems";
-import { determineMealType, localDateInTz, localTimeInTz, type MealType } from "./time";
+import { addDaysToDateString, determineMealType, localDateInTz, localTimeInTz, type MealType } from "./time";
 import { getNutritionProfile } from "./nutritionProfile";
 
 export interface FoodLogRow {
@@ -150,6 +150,101 @@ export async function getDailySummary(env: Env, userId: number, dateLocal: strin
     .bind(userId, dateLocal)
     .first<DailySummary>();
   return row ?? { calories: 0, protein: 0, carbs: 0, fat: 0 };
+}
+
+export interface WeekDaySummary {
+  date: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  logs: FoodLogWithItem[];
+}
+
+// One query for the whole week (grouped in JS, not SQL — 7 days of logs is a
+// tiny result set) so the frontend's week detail view doesn't need 7
+// follow-up requests for the individual items eaten each day.
+export async function getWeekSummary(env: Env, userId: number, weekStartDateLocal: string): Promise<WeekDaySummary[]> {
+  const weekEndDateLocal = addDaysToDateString(weekStartDateLocal, 6);
+  const { results } = await env.DB.prepare(
+    `${SELECT_WITH_ITEM} WHERE fl.user_id = ? AND fl.logged_date_local BETWEEN ? AND ? ORDER BY fl.logged_at ASC`
+  )
+    .bind(userId, weekStartDateLocal, weekEndDateLocal)
+    .all<FoodLogWithItem>();
+
+  const byDate = new Map<string, FoodLogWithItem[]>();
+  for (const row of results) {
+    const list = byDate.get(row.logged_date_local) ?? [];
+    list.push(row);
+    byDate.set(row.logged_date_local, list);
+  }
+
+  return Array.from({ length: 7 }, (_, i) => {
+    const date = addDaysToDateString(weekStartDateLocal, i);
+    const logs = byDate.get(date) ?? [];
+    const totals = logs.reduce(
+      (acc, l) => ({
+        calories: acc.calories + l.calories_kcal,
+        protein: acc.protein + l.protein_g,
+        carbs: acc.carbs + l.carbs_g,
+        fat: acc.fat + l.fat_g,
+      }),
+      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    );
+    return { date, ...totals, logs };
+  });
+}
+
+export interface NutritionTrendWeek {
+  weekStart: string;
+  avgCalories: number;
+  avgProtein: number;
+  avgCarbs: number;
+  avgFat: number;
+}
+
+// Weekly-bucketed daily averages, for the Reports nutrition trend chart.
+// `currentWeekStart` is the Monday of "this week" (from startOfWeekInTz);
+// walks backward `weeks` weeks from there.
+export async function getNutritionTrend(
+  env: Env,
+  userId: number,
+  currentWeekStart: string,
+  weeks: number
+): Promise<NutritionTrendWeek[]> {
+  const weekStarts = Array.from({ length: weeks }, (_, i) => addDaysToDateString(currentWeekStart, -7 * (weeks - 1 - i)));
+  const rangeStart = weekStarts[0];
+  const rangeEnd = addDaysToDateString(currentWeekStart, 6);
+
+  const { results } = await env.DB.prepare(
+    `SELECT logged_date_local AS date,
+       SUM(calories_kcal) AS calories, SUM(protein_g) AS protein, SUM(carbs_g) AS carbs, SUM(fat_g) AS fat
+     FROM food_logs WHERE user_id = ? AND logged_date_local BETWEEN ? AND ?
+     GROUP BY logged_date_local`
+  )
+    .bind(userId, rangeStart, rangeEnd)
+    .all<{ date: string; calories: number; protein: number; carbs: number; fat: number }>();
+
+  const byDate = new Map(results.map((r) => [r.date, r]));
+
+  return weekStarts.map((weekStart) => {
+    const totals = Array.from({ length: 7 }, (_, i) => byDate.get(addDaysToDateString(weekStart, i))).reduce(
+      (acc, day) => ({
+        calories: acc.calories + (day?.calories ?? 0),
+        protein: acc.protein + (day?.protein ?? 0),
+        carbs: acc.carbs + (day?.carbs ?? 0),
+        fat: acc.fat + (day?.fat ?? 0),
+      }),
+      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    );
+    return {
+      weekStart,
+      avgCalories: Math.round(totals.calories / 7),
+      avgProtein: Math.round(totals.protein / 7),
+      avgCarbs: Math.round(totals.carbs / 7),
+      avgFat: Math.round(totals.fat / 7),
+    };
+  });
 }
 
 export interface UpdateFoodLogParams {

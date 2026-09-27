@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
 import {
@@ -14,12 +14,14 @@ import {
   useSavedMeals,
   useScanLabel,
   useSearchFood,
+  useUploadFoodImage,
   todayLocalDate,
   type FoodItem,
   type FoodLogSource,
   type OcrResult,
 } from "../api/hooks/useFoodLogs";
 import { CameraCapture } from "../components/CameraCapture";
+import { FoodThumb } from "../components/FoodThumb";
 import { useDebounced } from "../hooks/useDebounced";
 import { amountPresets } from "../lib/foodAmounts";
 
@@ -27,7 +29,7 @@ import { amountPresets } from "../lib/foodAmounts";
 // lazy-loaded instead of bloating every page's initial bundle.
 const BarcodeScanner = lazy(() => import("../components/BarcodeScanner").then((m) => ({ default: m.BarcodeScanner })));
 
-type Tab = "quick" | "search" | "scan" | "photo";
+type Tab = "quick" | "search" | "scan" | "photo" | "custom";
 
 function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   const tabs: { key: Tab; label: string }[] = [
@@ -35,6 +37,7 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
     { key: "quick", label: "Quick" },
     { key: "scan", label: "Scan" },
     { key: "photo", label: "Photo" },
+    { key: "custom", label: "Custom" },
   ];
   return (
     <div className="mt-4 flex gap-2 rounded-xl bg-surface-2 p-1">
@@ -59,9 +62,10 @@ function SearchResultRow({ item, onSelect }: { item: FoodItem; onSelect: (item: 
     <button
       type="button"
       onClick={() => onSelect(item)}
-      className="flex w-full items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 text-left"
+      className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-left"
     >
-      <div className="min-w-0">
+      <FoodThumb url={item.imageUrl} />
+      <div className="min-w-0 flex-1">
         <p className="truncate font-medium text-ink">{item.name}</p>
         {item.brand && <p className="truncate text-sm text-ink-muted">{item.brand}</p>}
       </div>
@@ -383,6 +387,162 @@ function PhotoTab({ onExtracted }: { onExtracted: (result: OcrResult, imageR2Key
   );
 }
 
+function NutrientField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-sm font-medium text-ink-muted">{label}</span>
+      <input
+        type="number"
+        inputMode="decimal"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="rounded-xl border border-border bg-surface px-4 py-3 text-ink outline-none focus:border-accent"
+      />
+    </label>
+  );
+}
+
+function CustomFoodTab({ onCreated }: { onCreated: (item: FoodItem) => void }) {
+  const [name, setName] = useState("");
+  const [brand, setBrand] = useState("");
+  const [servingSizeG, setServingSizeG] = useState("");
+  const [calories, setCalories] = useState("");
+  const [protein, setProtein] = useState("");
+  const [carbs, setCarbs] = useState("");
+  const [fat, setFat] = useState("");
+  const [fiber, setFiber] = useState("");
+  const [sugar, setSugar] = useState("");
+  const [sodium, setSodium] = useState("");
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const previewUrl = useMemo(() => (photo ? URL.createObjectURL(photo) : null), [photo]);
+  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+
+  const uploadImage = useUploadFoodImage();
+  const createItem = useCreateFoodItem();
+  const pending = uploadImage.isPending || createItem.isPending;
+
+  function pickPhoto(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) setPhoto(file);
+  }
+
+  async function submit() {
+    if (!name.trim()) {
+      setError("Give this food a name.");
+      return;
+    }
+    if (!calories.trim() || Number(calories) < 0) {
+      setError("Calories per 100g is required.");
+      return;
+    }
+    setError(null);
+    try {
+      const imageR2Key = photo ? await uploadImage.mutateAsync(photo) : undefined;
+
+      const item = await createItem.mutateAsync({
+        name: name.trim(),
+        brand: brand.trim() || undefined,
+        servingSizeG: servingSizeG ? Number(servingSizeG) : undefined,
+        caloriesPer100g: Number(calories) || 0,
+        proteinPer100g: Number(protein) || 0,
+        carbsPer100g: Number(carbs) || 0,
+        fatPer100g: Number(fat) || 0,
+        fiberPer100g: fiber ? Number(fiber) : undefined,
+        sugarPer100g: sugar ? Number(sugar) : undefined,
+        sodiumMgPer100g: sodium ? Number(sodium) : undefined,
+        source: "user",
+        imageR2Key,
+      });
+      onCreated(item);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong.");
+    }
+  }
+
+  return (
+    <div className="mt-4 flex flex-1 flex-col gap-3 overflow-y-auto pb-6">
+      <p className="text-sm text-ink-muted">Add your own food with a photo and its nutrition facts, per 100g.</p>
+
+      {previewUrl ? (
+        <div className="relative">
+          <img src={previewUrl} alt="" className="h-40 w-full rounded-xl object-cover" />
+          <button
+            type="button"
+            onClick={() => setPhoto(null)}
+            className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white"
+            aria-label="Remove photo"
+          >
+            ×
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-6 text-sm font-medium text-ink-muted"
+        >
+          📷 Add a photo (optional)
+        </button>
+      )}
+      <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={pickPhoto} className="hidden" />
+
+      <label className="flex flex-col gap-1.5">
+        <span className="text-sm font-medium text-ink-muted">Name</span>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="rounded-xl border border-border bg-surface px-4 py-3 text-ink outline-none focus:border-accent"
+        />
+      </label>
+
+      <label className="flex flex-col gap-1.5">
+        <span className="text-sm font-medium text-ink-muted">Brand (optional)</span>
+        <input
+          value={brand}
+          onChange={(e) => setBrand(e.target.value)}
+          className="rounded-xl border border-border bg-surface px-4 py-3 text-ink outline-none focus:border-accent"
+        />
+      </label>
+
+      <label className="flex flex-col gap-1.5">
+        <span className="text-sm font-medium text-ink-muted">Serving size in grams (optional)</span>
+        <input
+          type="number"
+          inputMode="decimal"
+          value={servingSizeG}
+          onChange={(e) => setServingSizeG(e.target.value)}
+          className="rounded-xl border border-border bg-surface px-4 py-3 text-ink outline-none focus:border-accent"
+        />
+      </label>
+
+      <div className="grid grid-cols-2 gap-3">
+        <NutrientField label="Calories /100g" value={calories} onChange={setCalories} />
+        <NutrientField label="Protein /100g" value={protein} onChange={setProtein} />
+        <NutrientField label="Carbs /100g" value={carbs} onChange={setCarbs} />
+        <NutrientField label="Fat /100g" value={fat} onChange={setFat} />
+        <NutrientField label="Fiber /100g (optional)" value={fiber} onChange={setFiber} />
+        <NutrientField label="Sugar /100g (optional)" value={sugar} onChange={setSugar} />
+      </div>
+
+      <NutrientField label="Sodium mg/100g (optional)" value={sodium} onChange={setSodium} />
+
+      {error && <p className="text-sm text-red-500">{error}</p>}
+
+      <button
+        type="button"
+        onClick={submit}
+        disabled={pending}
+        className="mt-2 rounded-xl bg-accent px-4 py-3 font-semibold text-white transition-opacity disabled:opacity-50"
+      >
+        {pending ? "Saving…" : "Save food"}
+      </button>
+    </div>
+  );
+}
+
 function QuantityStep({ item, source, onBack, onAdded }: { item: FoodItem; source: FoodLogSource; onBack: () => void; onAdded: () => void }) {
   const date = todayLocalDate();
   const [quantity, setQuantity] = useState(item.servingSizeG ?? 100);
@@ -417,9 +577,12 @@ function QuantityStep({ item, source, onBack, onAdded }: { item: FoodItem; sourc
       </button>
 
       <div className="mt-4 flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-ink">{item.name}</h1>
-          {item.brand && <p className="text-ink-muted">{item.brand}</p>}
+        <div className="flex items-start gap-3">
+          <FoodThumb url={item.imageUrl} size={56} />
+          <div>
+            <h1 className="text-2xl font-bold text-ink">{item.name}</h1>
+            {item.brand && <p className="text-ink-muted">{item.brand}</p>}
+          </div>
         </div>
         <button
           type="button"
@@ -557,6 +720,7 @@ export function AddFoodPage() {
       {tab === "search" && <SearchTab onSelect={(item) => setSelected({ item, source: "search" })} />}
       {tab === "scan" && <ScanTab onSelect={(item) => setSelected({ item, source: "barcode" })} />}
       {tab === "photo" && <PhotoTab onExtracted={(result, imageR2Key) => setOcrPending({ result, imageR2Key })} />}
+      {tab === "custom" && <CustomFoodTab onCreated={(item) => setSelected({ item, source: "manual" })} />}
     </div>
   );
 }

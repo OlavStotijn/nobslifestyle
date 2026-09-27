@@ -29,6 +29,9 @@ export function publicFoodItem(f: FoodItemRow) {
     proteinPer100g: f.protein_g_per_100g,
     carbsPer100g: f.carbs_g_per_100g,
     fatPer100g: f.fat_g_per_100g,
+    fiberPer100g: f.fiber_g_per_100g,
+    sugarPer100g: f.sugar_g_per_100g,
+    sodiumMgPer100g: f.sodium_mg_per_100g,
     imageUrl: f.image_url,
   };
 }

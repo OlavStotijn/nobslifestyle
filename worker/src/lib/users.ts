@@ -1,7 +1,7 @@
 import type { Env } from "../types";
 
-export type LandingPage = "summary" | "food" | "workouts" | "feed" | "profile";
-const VALID_LANDING_PAGES: LandingPage[] = ["summary", "food", "workouts", "feed", "profile"];
+export type LandingPage = "checklist" | "food" | "workouts" | "reports" | "feed" | "profile";
+const VALID_LANDING_PAGES: LandingPage[] = ["checklist", "food", "workouts", "reports", "feed", "profile"];
 
 export interface UserRow {
   id: number;
@@ -31,7 +31,7 @@ export function publicUser(u: UserRow) {
     distanceUnit: u.distance_unit,
     defaultLandingPage: (VALID_LANDING_PAGES.includes(u.default_landing_page as LandingPage)
       ? u.default_landing_page
-      : "summary") as LandingPage,
+      : "checklist") as LandingPage,
     restTimerSeconds: u.rest_timer_seconds,
     activeProgramId: u.active_program_id,
     emailVerified: u.email_verified_at !== null,

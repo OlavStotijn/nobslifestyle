@@ -4,7 +4,7 @@ import { useNutritionProfile } from "../api/hooks/useNutritionProfile";
 
 // "/" itself renders nothing — it resolves to: verify email (hard gate) →
 // onboarding → the user's chosen landing tab (Settings → "Opens on app load"),
-// defaulting to Summary.
+// defaulting to Checklist.
 export function RootRedirectPage() {
   const { user } = useAuth();
   const { data: profile, isLoading } = useNutritionProfile();
@@ -21,5 +21,5 @@ export function RootRedirectPage() {
     return <Navigate to="/onboarding" replace />;
   }
 
-  return <Navigate to={`/${user?.defaultLandingPage ?? "summary"}`} replace />;
+  return <Navigate to={`/${user?.defaultLandingPage ?? "checklist"}`} replace />;
 }

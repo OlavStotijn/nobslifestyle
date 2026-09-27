@@ -1,6 +1,15 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useAddComment, useComments, useFeed, useFriendRequests, useToggleLike, type FeedPost } from "../api/hooks/useSocial";
+import {
+  useAddComment,
+  useComments,
+  useFeed,
+  useFriendRequests,
+  useToggleLike,
+  type CardioFeedPost,
+  type ChecklistFeedPost,
+  type StrengthFeedPost,
+} from "../api/hooks/useSocial";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { SlideCarousel } from "../components/SlideCarousel";
 import { NotificationBell } from "../components/NotificationBell";
@@ -24,7 +33,9 @@ function StarRow({ rating }: { rating: number }) {
   );
 }
 
-function StatsSlide({ post }: { post: FeedPost }) {
+type SessionFeedPost = StrengthFeedPost | CardioFeedPost;
+
+function StatsSlide({ post }: { post: SessionFeedPost }) {
   const { formatDistance, distanceLabel, formatPace, formatSpeed } = useUnits();
 
   return (
@@ -129,7 +140,33 @@ function CommentsSection({ postId }: { postId: number }) {
   );
 }
 
-function PostCard({ post }: { post: FeedPost }) {
+function ChecklistSnapshotCard({ post }: { post: ChecklistFeedPost }) {
+  return (
+    <div className="rounded-2xl border border-border bg-surface p-4">
+      <div className="flex items-center justify-between">
+        <p className="font-medium text-ink">{post.user.displayName}</p>
+        <p className="text-xs text-ink-muted">{new Date(post.createdAt).toLocaleString()}</p>
+      </div>
+      <p className="mt-2">
+        <span className="text-2xl font-bold text-accent">
+          {post.doneCount}/{post.totalCount}
+        </span>{" "}
+        <span className="text-sm text-ink-muted">done on their checklist today</span>
+      </p>
+      {post.doneTitles.length > 0 && (
+        <ul className="mt-2 flex flex-wrap gap-1">
+          {post.doneTitles.map((title) => (
+            <li key={title} className="rounded-full bg-accent-soft px-2 py-0.5 text-xs text-accent">
+              ✓ {title}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function PostCard({ post }: { post: SessionFeedPost }) {
   const toggleLike = useToggleLike();
   const [showComments, setShowComments] = useState(false);
 
@@ -207,9 +244,13 @@ export function FeedPage() {
         {!isLoading && posts?.length === 0 && (
           <p className="text-ink-muted">No posts yet. Finish a workout and share it, or add some friends.</p>
         )}
-        {posts?.map((post) => (
-          <PostCard key={post.postId} post={post} />
-        ))}
+        {posts?.map((post) =>
+          post.type === "checklist" ? (
+            <ChecklistSnapshotCard key={`checklist-${post.snapshotId}`} post={post} />
+          ) : (
+            <PostCard key={post.postId} post={post} />
+          )
+        )}
       </div>
     </div>
   );

@@ -27,6 +27,36 @@ export function localTimeInTz(instant: Date, timeZone: string): string {
   }).format(instant);
 }
 
+// Pure calendar-date arithmetic on "YYYY-MM-DD" strings — safe to do via a
+// UTC Date under the hood since we're only ever adding/subtracting whole
+// days on an already-resolved local calendar date, never converting between
+// timezones here.
+export function addDaysToDateString(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const asUtc = new Date(Date.UTC(y, m - 1, d));
+  asUtc.setUTCDate(asUtc.getUTCDate() + days);
+  return asUtc.toISOString().slice(0, 10);
+}
+
+// Monday of the calendar week that an already-resolved "YYYY-MM-DD" local
+// date string falls in — pure calendar math, no timezone needed since the
+// date is already resolved (this is what every *_date_local column holds).
+export function startOfWeekForDateString(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay(); // 0=Sun..6=Sat
+  const daysSinceMonday = (weekday + 6) % 7; // Mon=0, Tue=1, ..., Sun=6
+  return addDaysToDateString(dateStr, -daysSinceMonday);
+}
+
+// Monday of the calendar week (local to timeZone) that `instant` falls in —
+// for turning "now" (or any raw instant, e.g. a session's started_at) into a
+// week bucket. If you already have a resolved local-date string, use
+// startOfWeekForDateString instead — re-deriving it via an instant would
+// re-apply the timezone conversion and can shift the date by a day.
+export function startOfWeekInTz(instant: Date, timeZone: string): string {
+  return startOfWeekForDateString(localDateInTz(instant, timeZone));
+}
+
 export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 
 export interface MealWindows {

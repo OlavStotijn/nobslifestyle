@@ -6,10 +6,10 @@ import { ResetPasswordPage } from "./routes/ResetPasswordPage";
 import { VerifyEmailPage } from "./routes/VerifyEmailPage";
 import { VerifyEmailRequiredPage } from "./routes/VerifyEmailRequiredPage";
 import { RootPage } from "./routes/RootPage";
-import { SummaryPage } from "./routes/SummaryPage";
 import { OnboardingPage } from "./routes/OnboardingPage";
 import { FoodPage } from "./routes/FoodPage";
 import { AddFoodPage } from "./routes/AddFoodPage";
+import { FoodWeekPage } from "./routes/FoodWeekPage";
 import { MealBuilderPage } from "./routes/MealBuilderPage";
 import { WorkoutsPage } from "./routes/WorkoutsPage";
 import { NewSchemaPage } from "./routes/NewSchemaPage";
@@ -26,6 +26,9 @@ import { SettingsPage } from "./routes/SettingsPage";
 import { AddProgressPhotoPage } from "./routes/AddProgressPhotoPage";
 import { PersonalRecordsPage } from "./routes/PersonalRecordsPage";
 import { ProgramsPage } from "./routes/ProgramsPage";
+import { ChecklistPage } from "./routes/ChecklistPage";
+import { ChecklistFormPage } from "./routes/ChecklistFormPage";
+import { ReportsPage } from "./routes/ReportsPage";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { AppLayout } from "./components/layout/AppLayout";
 import { useSyncListener } from "./api/hooks/useSyncListener";
@@ -46,6 +49,7 @@ export default function App() {
         <Route path="/verify-email-required" element={<VerifyEmailRequiredPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/food/add" element={<AddFoodPage />} />
+        <Route path="/food/week" element={<FoodWeekPage />} />
         <Route path="/food/meals/new" element={<MealBuilderPage />} />
         <Route path="/workouts/new" element={<NewSchemaPage />} />
         <Route path="/workouts/:id/edit" element={<SchemaEditPage />} />
@@ -59,11 +63,14 @@ export default function App() {
         <Route path="/profile/progress-photos/add" element={<AddProgressPhotoPage />} />
         <Route path="/progress/prs" element={<PersonalRecordsPage />} />
         <Route path="/programs" element={<ProgramsPage />} />
+        <Route path="/checklist/new" element={<ChecklistFormPage />} />
+        <Route path="/checklist/:id/edit" element={<ChecklistFormPage />} />
 
         <Route element={<AppLayout />}>
-          <Route path="/summary" element={<SummaryPage />} />
+          <Route path="/checklist" element={<ChecklistPage />} />
           <Route path="/workouts" element={<WorkoutsPage />} />
           <Route path="/food" element={<FoodPage />} />
+          <Route path="/reports" element={<ReportsPage />} />
           <Route path="/feed" element={<FeedPage />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Route>

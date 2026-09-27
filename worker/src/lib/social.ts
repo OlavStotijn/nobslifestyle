@@ -93,27 +93,80 @@ const FEED_SELECT = `
   LEFT JOIN cardio_sessions cs ON cs.id = p.cardio_session_id
 `;
 
-export async function getFeed(env: Env, userId: number, limit = 30): Promise<{ posts: FeedPostRow[]; likedPostIds: Set<number> }> {
+export interface ChecklistSnapshotRow {
+  id: number;
+  user_id: number;
+  display_name: string;
+  username: string | null;
+  avatar_r2_key: string | null;
+  done_count: number;
+  total_count: number;
+  done_titles: string;
+  created_at: string;
+}
+
+export function publicChecklistSnapshot(row: ChecklistSnapshotRow) {
+  return {
+    type: "checklist" as const,
+    snapshotId: row.id,
+    createdAt: row.created_at,
+    user: {
+      id: row.user_id,
+      displayName: row.display_name,
+      username: row.username,
+      avatarUrl: row.avatar_r2_key ? `/api/media/${row.avatar_r2_key}` : null,
+    },
+    doneCount: row.done_count,
+    totalCount: row.total_count,
+    doneTitles: JSON.parse(row.done_titles) as string[],
+  };
+}
+
+export type FeedItem = ReturnType<typeof publicFeedPost> | ReturnType<typeof publicChecklistSnapshot>;
+
+// A checklist progress snapshot is a separate table from posts (see the
+// migration notes on checklist_snapshots), so the feed is a merge of two
+// queries sorted by created_at rather than one JOIN — kept here, not in the
+// route, so the route stays a thin "fetch + respond".
+export async function getFeed(env: Env, userId: number, limit = 30): Promise<FeedItem[]> {
   const friendIds = await getFriendUserIds(env, userId);
   const authorIds = [userId, ...friendIds];
   const placeholders = authorIds.map(() => "?").join(",");
 
-  const { results } = await env.DB.prepare(
+  const { results: postRows } = await env.DB.prepare(
     `${FEED_SELECT} WHERE p.user_id IN (${placeholders}) ORDER BY p.created_at DESC LIMIT ?`
   )
     .bind(...authorIds, limit)
     .all<FeedPostRow>();
 
-  if (results.length === 0) return { posts: [], likedPostIds: new Set() };
+  let likedPostIds = new Set<number>();
+  if (postRows.length > 0) {
+    const postIds = postRows.map((r) => r.post_id);
+    const likedRows = await env.DB.prepare(
+      `SELECT post_id FROM post_likes WHERE user_id = ? AND post_id IN (${postIds.map(() => "?").join(",")})`
+    )
+      .bind(userId, ...postIds)
+      .all<{ post_id: number }>();
+    likedPostIds = new Set(likedRows.results.map((r) => r.post_id));
+  }
 
-  const postIds = results.map((r) => r.post_id);
-  const likedRows = await env.DB.prepare(
-    `SELECT post_id FROM post_likes WHERE user_id = ? AND post_id IN (${postIds.map(() => "?").join(",")})`
+  const { results: snapshotRows } = await env.DB.prepare(
+    `SELECT cs.id, cs.user_id, u.display_name, u.username, u.avatar_r2_key,
+            cs.done_count, cs.total_count, cs.done_titles, cs.created_at
+     FROM checklist_snapshots cs
+     JOIN users u ON u.id = cs.user_id
+     WHERE cs.user_id IN (${placeholders})
+     ORDER BY cs.created_at DESC LIMIT ?`
   )
-    .bind(userId, ...postIds)
-    .all<{ post_id: number }>();
+    .bind(...authorIds, limit)
+    .all<ChecklistSnapshotRow>();
 
-  return { posts: results, likedPostIds: new Set(likedRows.results.map((r) => r.post_id)) };
+  const items: FeedItem[] = [
+    ...postRows.map((r) => publicFeedPost(r, likedPostIds.has(r.post_id))),
+    ...snapshotRows.map(publicChecklistSnapshot),
+  ];
+  items.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  return items.slice(0, limit);
 }
 
 export interface CreatePostParams {

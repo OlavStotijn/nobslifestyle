@@ -9,10 +9,14 @@ import { isPushSubscribed, subscribeToPush, unsubscribeFromPush } from "../api/h
 
 const REST_TIMER_OPTIONS = [60, 90, 120, 180];
 
-const LANDING_OPTIONS: { value: LandingPage; labelKey: "nav.summary" | "nav.food" | "nav.workout" | "nav.feed" | "nav.profile" }[] = [
-  { value: "summary", labelKey: "nav.summary" },
+const LANDING_OPTIONS: {
+  value: LandingPage;
+  labelKey: "nav.checklist" | "nav.food" | "nav.workout" | "nav.reports" | "nav.feed" | "nav.profile";
+}[] = [
+  { value: "checklist", labelKey: "nav.checklist" },
   { value: "food", labelKey: "nav.food" },
   { value: "workouts", labelKey: "nav.workout" },
+  { value: "reports", labelKey: "nav.reports" },
   { value: "feed", labelKey: "nav.feed" },
   { value: "profile", labelKey: "nav.profile" },
 ];

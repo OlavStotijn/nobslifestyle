@@ -1,5 +1,5 @@
 import type { Env } from "../types";
-import { localDateInTz } from "./time";
+import { addDaysToDateString, localDateInTz, startOfWeekForDateString, startOfWeekInTz } from "./time";
 import { getNutritionProfile } from "./nutritionProfile";
 
 export type ActivityType = "running" | "cycling";
@@ -172,4 +172,41 @@ export async function updateCardioSession(
 export async function deleteCardioSession(env: Env, userId: number, id: number): Promise<boolean> {
   const result = await env.DB.prepare("DELETE FROM cardio_sessions WHERE id = ? AND user_id = ?").bind(id, userId).run();
   return (result.meta.changes ?? 0) > 0;
+}
+
+export interface CardioTrendWeek {
+  weekStart: string;
+  running: { distanceM: number; durationS: number };
+  cycling: { distanceM: number; durationS: number };
+}
+
+// Weekly distance/duration per activity type, for the Reports cardio chart.
+// started_date_local is already a resolved local date, so bucketing uses
+// startOfWeekForDateString directly — no timezone re-conversion needed.
+export async function getCardioTrend(env: Env, userId: number, timezone: string, weeks: number): Promise<CardioTrendWeek[]> {
+  const currentWeekStart = startOfWeekInTz(new Date(), timezone);
+  const weekStarts = Array.from({ length: weeks }, (_, i) => addDaysToDateString(currentWeekStart, -7 * (weeks - 1 - i)));
+
+  const { results } = await env.DB.prepare(
+    `SELECT started_date_local AS date, activity_type AS activityType, distance_m AS distanceM, duration_s AS durationS
+     FROM cardio_sessions WHERE user_id = ? AND started_date_local >= ?`
+  )
+    .bind(userId, weekStarts[0])
+    .all<{ date: string; activityType: ActivityType; distanceM: number; durationS: number }>();
+
+  const totals = new Map<string, CardioTrendWeek>(
+    weekStarts.map((weekStart) => [
+      weekStart,
+      { weekStart, running: { distanceM: 0, durationS: 0 }, cycling: { distanceM: 0, durationS: 0 } },
+    ])
+  );
+
+  for (const row of results) {
+    const bucket = totals.get(startOfWeekForDateString(row.date));
+    if (!bucket) continue;
+    bucket[row.activityType].distanceM += row.distanceM;
+    bucket[row.activityType].durationS += row.durationS;
+  }
+
+  return weekStarts.map((weekStart) => totals.get(weekStart)!);
 }

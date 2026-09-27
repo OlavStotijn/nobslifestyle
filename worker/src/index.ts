@@ -16,6 +16,8 @@ import { weightLogsRoute } from "./routes/weightLogs";
 import { programsRoute } from "./routes/programs";
 import { exportRoute } from "./routes/export";
 import { waterRoute } from "./routes/water";
+import { checklistRoute } from "./routes/checklist";
+import { sendDueChecklistReminders } from "./lib/checklistReminders";
 
 const app = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
 
@@ -54,6 +56,7 @@ app.route("/", weightLogsRoute);
 app.route("/", programsRoute);
 app.route("/", exportRoute);
 app.route("/", waterRoute);
+app.route("/", checklistRoute);
 
 // Any /api/* path that didn't match a route above is a genuinely unknown
 // API endpoint — respond JSON, don't fall through to the SPA shell below.
@@ -63,4 +66,12 @@ app.all("/api/*", (c) => c.json({ error: "Not found." }, 404));
 // worker) is served from the static assets binding.
 app.all("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 
-export default app;
+export default {
+  fetch: app.fetch,
+  // First scheduled (cron) handler in this Worker — checks every checklist
+  // item with a reminder set against each owner's local time, every 5
+  // minutes (see wrangler.jsonc triggers.crons).
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(sendDueChecklistReminders(env));
+  },
+};

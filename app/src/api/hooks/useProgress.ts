@@ -65,6 +65,18 @@ export function useExerciseHistory(exerciseId: number | undefined) {
   });
 }
 
+export interface VolumeTrendWeek {
+  weekStart: string;
+  volumeKg: number;
+}
+
+export function useVolumeTrend(weeks = 12) {
+  return useQuery({
+    queryKey: ["progress", "volume-trend", weeks],
+    queryFn: () => api.get<{ trend: VolumeTrendWeek[] }>(`/progress/volume?weeks=${weeks}`).then((r) => r.trend),
+  });
+}
+
 export interface Streaks {
   loggingStreakDays: number;
   workoutStreakDays: number;

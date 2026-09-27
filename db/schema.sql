@@ -15,7 +15,7 @@ CREATE TABLE users (
   avatar_r2_key      TEXT,
   weight_unit        TEXT    NOT NULL DEFAULT 'kg' CHECK (weight_unit IN ('kg','lb')),
   distance_unit      TEXT    NOT NULL DEFAULT 'km' CHECK (distance_unit IN ('km','mi')),
-  default_landing_page TEXT  NOT NULL DEFAULT 'summary',
+  default_landing_page TEXT  NOT NULL DEFAULT 'checklist',
   rest_timer_seconds INTEGER NOT NULL DEFAULT 90,
   active_program_id  INTEGER,
   token_version      INTEGER NOT NULL DEFAULT 1,
@@ -352,7 +352,7 @@ CREATE INDEX idx_push_subscriptions_user ON push_subscriptions (user_id);
 CREATE TABLE notifications (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  type        TEXT    NOT NULL CHECK (type IN ('friend_request','friend_accepted','post_comment','post_like')),
+  type        TEXT    NOT NULL CHECK (type IN ('friend_request','friend_accepted','post_comment','post_like','checklist_invite','checklist_accepted','checklist_reminder')),
   title       TEXT    NOT NULL,
   body        TEXT    NOT NULL,
   link        TEXT,
@@ -384,3 +384,76 @@ CREATE TABLE water_settings (
   reminder_end_time           TEXT    NOT NULL DEFAULT '22:00',
   updated_at                  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
+
+-- ============================================================
+-- Phase 10: Google/Apple sign-in
+-- ============================================================
+
+-- Links an external provider account to a local user. password_hash on
+-- users stays NOT NULL — OAuth-only signups get a random, unusable bcrypt
+-- hash instead of a schema change.
+CREATE TABLE oauth_identities (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id           INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider          TEXT    NOT NULL CHECK (provider IN ('google','apple')),
+  provider_user_id  TEXT    NOT NULL,
+  created_at        TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  UNIQUE (provider, provider_user_id)
+);
+CREATE INDEX idx_oauth_identities_user ON oauth_identities (user_id);
+
+-- ============================================================
+-- Phase 11: Checklist
+-- ============================================================
+
+CREATE TABLE checklist_items (
+  id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+  owner_user_id            INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title                    TEXT    NOT NULL,
+  notes                    TEXT,
+  start_date               TEXT    NOT NULL,
+  recurrence               TEXT    NOT NULL DEFAULT 'none' CHECK (recurrence IN ('none','daily','weekly')),
+  recurrence_weekdays      TEXT,
+  reminder_time            TEXT,
+  deadline_time            TEXT,
+  linked_workout_schema_id INTEGER REFERENCES workout_schemas(id) ON DELETE SET NULL,
+  linked_food_item_id      INTEGER REFERENCES food_items(id) ON DELETE SET NULL,
+  last_reminder_sent_date  TEXT,
+  archived_at              TEXT,
+  created_at               TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at               TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX idx_checklist_items_owner ON checklist_items (owner_user_id, archived_at);
+
+CREATE TABLE checklist_collaborators (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  checklist_item_id  INTEGER NOT NULL REFERENCES checklist_items(id) ON DELETE CASCADE,
+  user_id            INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status             TEXT    NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','accepted','declined')),
+  created_at         TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  responded_at       TEXT,
+  UNIQUE (checklist_item_id, user_id)
+);
+CREATE INDEX idx_checklist_collaborators_user ON checklist_collaborators (user_id, status);
+
+CREATE TABLE checklist_completions (
+  id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+  checklist_item_id     INTEGER NOT NULL REFERENCES checklist_items(id) ON DELETE CASCADE,
+  user_id               INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  completed_date_local  TEXT    NOT NULL,
+  completed_at          TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  UNIQUE (checklist_item_id, user_id, completed_date_local)
+);
+CREATE INDEX idx_checklist_completions_item_date ON checklist_completions (checklist_item_id, completed_date_local);
+
+CREATE TABLE checklist_snapshots (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id             INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  snapshot_date_local TEXT    NOT NULL,
+  done_count          INTEGER NOT NULL,
+  total_count         INTEGER NOT NULL,
+  done_titles         TEXT    NOT NULL,
+  created_at          TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  UNIQUE (user_id, snapshot_date_local)
+);
+CREATE INDEX idx_checklist_snapshots_user ON checklist_snapshots (user_id, created_at DESC);

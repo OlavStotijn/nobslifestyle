@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import type { Env } from "../types";
 import type { AuthVariables } from "../middleware/requireAuth";
 import { requireAuth } from "../middleware/requireAuth";
@@ -11,12 +11,22 @@ import {
   markEmailVerified,
   publicUser,
   setPasswordAndBumpTokenVersion,
+  type UserRow,
 } from "../lib/users";
 import { createPasswordResetToken, consumePasswordResetToken } from "../lib/passwordResetTokens";
 import { createEmailVerificationToken, consumeEmailVerificationToken } from "../lib/emailVerificationTokens";
 import { tooManyAttempts, hit, clear } from "../lib/rateLimit";
 import { verifyTurnstileToken } from "../lib/turnstile";
 import { sendPasswordResetEmail, sendVerificationEmail } from "../lib/email";
+import {
+  verifyIdToken,
+  GOOGLE_JWKS_URL,
+  GOOGLE_ISSUERS,
+  APPLE_JWKS_URL,
+  APPLE_ISSUERS,
+  type VerifiedIdToken,
+} from "../lib/oauth";
+import { findUserIdByOAuthIdentity, linkOAuthIdentity, type OAuthProvider } from "../lib/oauthIdentities";
 
 async function sendVerificationEmailBestEffort(env: Env, userId: number, email: string): Promise<void> {
   try {
@@ -113,6 +123,135 @@ authRoute.post("/api/auth/login", async (c) => {
   const cookie = await makeSessionCookie(c.env, user.id, user.token_version);
   c.header("Set-Cookie", cookie);
   return c.json({ user: publicUser(user) });
+});
+
+// Google/Apple both attest email ownership in the ID token itself
+// (email_verified), so a sign-in via either provider skips our own
+// verify-email flow entirely — new accounts are created already verified,
+// and any existing unverified account gets marked verified on first link.
+async function completeOAuthSignIn(
+  c: Context<{ Bindings: Env; Variables: AuthVariables }>,
+  provider: OAuthProvider,
+  verified: VerifiedIdToken,
+  fallbackDisplayName: string
+) {
+  if (!verified.email || !verified.emailVerified) {
+    return c.json({ error: "This account's email address could not be verified by the provider." }, 422);
+  }
+
+  let userId = await findUserIdByOAuthIdentity(c.env, provider, verified.sub);
+
+  if (!userId) {
+    const existing = await findUserByEmail(c.env, verified.email);
+    if (existing) {
+      userId = existing.id;
+      if (!existing.email_verified_at) {
+        // The existing account's email was never proven, which means
+        // whoever set its password might not be the real owner of this
+        // address (e.g. someone pre-registered the victim's email hoping
+        // they'd later sign in with a provider and inherit the account).
+        // The provider just proved real ownership, so reclaim the account
+        // by invalidating that unverified password rather than letting
+        // both the provider and the original password holder into it.
+        await setPasswordAndBumpTokenVersion(
+          c.env,
+          existing.id,
+          hashPassword(`${crypto.randomUUID()}${crypto.randomUUID()}`)
+        );
+      }
+    } else {
+      const unusablePassword = `${crypto.randomUUID()}${crypto.randomUUID()}`;
+      const created = await createUser(c.env, {
+        email: verified.email,
+        passwordHash: hashPassword(unusablePassword),
+        displayName: verified.name || fallbackDisplayName,
+        username: null,
+      });
+      userId = created.id;
+    }
+    await linkOAuthIdentity(c.env, userId, provider, verified.sub);
+  }
+
+  let user = await getUserById(c.env, userId);
+  if (!user) return c.json({ error: "Not found." }, 404);
+
+  if (!user.email_verified_at) {
+    await markEmailVerified(c.env, user.id);
+    user = { ...user, email_verified_at: new Date().toISOString() } satisfies UserRow;
+  }
+
+  const cookie = await makeSessionCookie(c.env, user.id, user.token_version);
+  c.header("Set-Cookie", cookie);
+  return c.json({ user: publicUser(user) });
+}
+
+interface OAuthBody {
+  idToken: string;
+}
+
+authRoute.post("/api/auth/oauth/google", async (c) => {
+  const ip = clientIp(c);
+  if (await tooManyAttempts(c.env, "oauth", ip, 20)) {
+    return c.json({ error: "Too many attempts. Try again later." }, 429);
+  }
+
+  const body = await c.req.json<Partial<OAuthBody>>().catch(() => null);
+  if (!body?.idToken) return c.json({ error: "An ID token is required." }, 422);
+
+  const audiences = [c.env.GOOGLE_CLIENT_ID_WEB, c.env.GOOGLE_CLIENT_ID_IOS, c.env.GOOGLE_CLIENT_ID_ANDROID].filter(
+    Boolean
+  );
+
+  let verified: VerifiedIdToken;
+  try {
+    verified = await verifyIdToken({
+      idToken: body.idToken,
+      jwksUrl: GOOGLE_JWKS_URL,
+      issuers: GOOGLE_ISSUERS,
+      audiences,
+    });
+  } catch (err) {
+    console.error("Google ID token verification failed", err);
+    await hit(c.env, "oauth", ip, 15 * 60 * 1000);
+    return c.json({ error: "Google sign-in could not be verified." }, 401);
+  }
+
+  return completeOAuthSignIn(c, "google", verified, "Google user");
+});
+
+interface AppleOAuthBody extends OAuthBody {
+  // Apple only ever includes the user's name in its authorization response
+  // on the very first sign-in, never in the ID token — the client passes it
+  // along once so we can use it as the initial display name.
+  fullName?: string;
+}
+
+authRoute.post("/api/auth/oauth/apple", async (c) => {
+  const ip = clientIp(c);
+  if (await tooManyAttempts(c.env, "oauth", ip, 20)) {
+    return c.json({ error: "Too many attempts. Try again later." }, 429);
+  }
+
+  const body = await c.req.json<Partial<AppleOAuthBody>>().catch(() => null);
+  if (!body?.idToken) return c.json({ error: "An ID token is required." }, 422);
+
+  const audiences = [c.env.APPLE_SERVICES_ID, c.env.APPLE_BUNDLE_ID].filter(Boolean);
+
+  let verified: VerifiedIdToken;
+  try {
+    verified = await verifyIdToken({
+      idToken: body.idToken,
+      jwksUrl: APPLE_JWKS_URL,
+      issuers: APPLE_ISSUERS,
+      audiences,
+    });
+  } catch (err) {
+    console.error("Apple ID token verification failed", err);
+    await hit(c.env, "oauth", ip, 15 * 60 * 1000);
+    return c.json({ error: "Apple sign-in could not be verified." }, 401);
+  }
+
+  return completeOAuthSignIn(c, "apple", { ...verified, name: verified.name ?? body.fullName ?? null }, "Apple user");
 });
 
 authRoute.post("/api/auth/logout", async (c) => {

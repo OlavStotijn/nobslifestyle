@@ -13,14 +13,17 @@ import { useCardioSessionsForDate, type CardioSession } from "../api/hooks/useCa
 import { useNutritionProfile } from "../api/hooks/useNutritionProfile";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { WaterTracker } from "../components/WaterTracker";
+import { FoodThumb } from "../components/FoodThumb";
+import { WeekOverviewWidget } from "../components/WeekOverviewWidget";
 import { formatDuration } from "../lib/geo";
 import { useUnits } from "../lib/useUnits";
 import { useTranslation } from "../i18n/I18nContext";
 
 function LogRow({ log, onDelete }: { log: FoodLog; onDelete: (id: number) => void }) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3">
-      <div className="min-w-0">
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3">
+      <FoodThumb url={log.foodItemImageUrl} />
+      <div className="min-w-0 flex-1">
         <p className="truncate font-medium text-ink">{log.foodItemName}</p>
         <p className="text-sm text-ink-muted">
           {log.quantityG}g · {log.calories} kcal
@@ -106,6 +109,8 @@ export function FoodPage() {
           {burned > 0 ? ` · +${burned} ${t("summary.fromActivity")}` : ""} / {target}
         </p>
       </div>
+
+      <WeekOverviewWidget targetKcal={profile?.targetKcal ?? 0} />
 
       <div className="mt-5">
         <WaterTracker />

@@ -16,12 +16,17 @@ import {
   createFoodLog,
   deleteFoodLog,
   getDailySummary,
+  getNutritionTrend,
+  getWeekSummary,
   listFoodLogsForDate,
   publicFoodLog,
   updateFoodLog,
 } from "../lib/foodLogs";
-import type { MealType } from "../lib/time";
+import { getNutritionProfile } from "../lib/nutritionProfile";
+import { localDateInTz, startOfWeekInTz, type MealType } from "../lib/time";
+import { autoCompleteLinkedChecklistItems } from "../lib/checklist";
 import { extractNutritionFromLabel } from "../lib/ocr";
+import { isImageAppropriate } from "../lib/contentModeration";
 import { getBurnedKcalForDate } from "../lib/cardioSessions";
 import {
   createSavedMeal,
@@ -99,6 +104,29 @@ foodRoute.post("/api/food/ocr", async (c) => {
   return c.json({ result, imageR2Key: key });
 });
 
+const MAX_FOOD_IMAGE_BYTES = 8 * 1024 * 1024;
+
+// Plain "upload a photo, get back an R2 key" endpoint — separate from
+// /api/food/ocr (which also runs AI extraction) so a custom food item's
+// product photo doesn't have to pretend to be a nutrition label.
+foodRoute.post("/api/food/image", async (c) => {
+  const form = await c.req.formData().catch(() => null);
+  const file = form?.get("image");
+  if (!(file instanceof File)) return c.json({ error: "An image file is required." }, 422);
+  if (file.size > MAX_FOOD_IMAGE_BYTES) return c.json({ error: "Image is too large (max 8MB)." }, 422);
+
+  const buffer = await file.arrayBuffer();
+  const appropriate = await isImageAppropriate(c.env, buffer, file.type);
+  if (!appropriate) {
+    return c.json({ error: "This photo looks like it may violate our content guidelines. Try a different one." }, 422);
+  }
+
+  const key = `food/${c.get("userId")}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.jpg`;
+  await c.env.MEDIA.put(key, buffer, { httpMetadata: { contentType: file.type || "image/jpeg" } });
+
+  return c.json({ imageR2Key: key });
+});
+
 interface CreateFoodItemBody {
   name: string;
   brand?: string;
@@ -107,7 +135,10 @@ interface CreateFoodItemBody {
   proteinPer100g?: number;
   carbsPer100g?: number;
   fatPer100g?: number;
-  source?: "manual" | "ocr";
+  fiberPer100g?: number;
+  sugarPer100g?: number;
+  sodiumMgPer100g?: number;
+  source?: "manual" | "ocr" | "user";
   imageR2Key?: string;
 }
 
@@ -117,15 +148,20 @@ foodRoute.post("/api/food/items", async (c) => {
     return c.json({ error: "name and caloriesPer100g are required." }, 422);
   }
 
+  const source = body.source === "ocr" ? "ocr" : body.source === "user" ? "user" : "manual";
+
   const item = await upsertFoodItem(c.env, {
     name: body.name,
     brand: body.brand ?? null,
-    source: body.source === "ocr" ? "ocr" : "manual",
+    source,
     servingSizeG: body.servingSizeG ?? null,
     caloriesPer100g: body.caloriesPer100g,
     proteinPer100g: body.proteinPer100g ?? 0,
     carbsPer100g: body.carbsPer100g ?? 0,
     fatPer100g: body.fatPer100g ?? 0,
+    fiberPer100g: body.fiberPer100g ?? null,
+    sugarPer100g: body.sugarPer100g ?? null,
+    sodiumMgPer100g: body.sodiumMgPer100g ?? null,
     imageUrl: body.imageR2Key ? `/api/media/${body.imageR2Key}` : null,
     createdByUserId: c.get("userId"),
   });
@@ -144,6 +180,41 @@ foodRoute.get("/api/food/logs/summary", async (c) => {
   const userId = c.get("userId");
   const [summary, burnedKcal] = await Promise.all([getDailySummary(c.env, userId, date), getBurnedKcalForDate(c.env, userId, date)]);
   return c.json({ date, summary: { ...summary, burnedKcal } });
+});
+
+foodRoute.get("/api/food/logs/week", async (c) => {
+  const userId = c.get("userId");
+  const weekStartParam = c.req.query("weekStart");
+
+  let weekStart: string;
+  if (weekStartParam && DATE_PATTERN.test(weekStartParam)) {
+    weekStart = weekStartParam;
+  } else {
+    const profile = await getNutritionProfile(c.env, userId);
+    weekStart = startOfWeekInTz(new Date(), profile?.timezone ?? "Europe/Amsterdam");
+  }
+
+  const days = await getWeekSummary(c.env, userId, weekStart);
+  return c.json({
+    weekStart,
+    days: days.map((d) => ({
+      date: d.date,
+      calories: d.calories,
+      protein: d.protein,
+      carbs: d.carbs,
+      fat: d.fat,
+      logs: d.logs.map(publicFoodLog),
+    })),
+  });
+});
+
+foodRoute.get("/api/food/reports/nutrition", async (c) => {
+  const userId = c.get("userId");
+  const weeks = Math.min(52, Math.max(1, Number(c.req.query("weeks")) || 8));
+  const profile = await getNutritionProfile(c.env, userId);
+  const currentWeekStart = startOfWeekInTz(new Date(), profile?.timezone ?? "Europe/Amsterdam");
+  const trend = await getNutritionTrend(c.env, userId, currentWeekStart, weeks);
+  return c.json({ trend });
 });
 
 interface CreateFoodLogBody {
@@ -165,12 +236,21 @@ foodRoute.post("/api/food/logs", async (c) => {
   const item = await getFoodItemById(c.env, body.foodItemId);
   if (!item) return c.json({ error: "Food item not found." }, 404);
 
-  const log = await createFoodLog(c.env, c.get("userId"), {
+  const userId = c.get("userId");
+  const log = await createFoodLog(c.env, userId, {
     foodItemId: body.foodItemId,
     quantityG: body.quantityG,
     mealTypeOverride: body.mealType,
     source: body.source,
   });
+
+  c.executionCtx.waitUntil(
+    (async () => {
+      const profile = await getNutritionProfile(c.env, userId);
+      const dateLocal = localDateInTz(new Date(), profile?.timezone ?? "Europe/Amsterdam");
+      await autoCompleteLinkedChecklistItems(c.env, userId, { foodItemId: body.foodItemId, dateLocal });
+    })()
+  );
 
   return c.json({ log: publicFoodLog(log) }, 201);
 });

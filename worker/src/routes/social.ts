@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Env } from "../types";
 import type { AuthVariables } from "../middleware/requireAuth";
 import { requireAuth } from "../middleware/requireAuth";
-import { createPost, deletePost, getFeed, likePost, publicFeedPost, unlikePost } from "../lib/social";
+import { createPost, deletePost, getFeed, likePost, unlikePost } from "../lib/social";
 import { isImageAppropriate } from "../lib/contentModeration";
 import { addComment, deleteComment, listComments, publicComment } from "../lib/comments";
 import { getUserById } from "../lib/users";
@@ -16,8 +16,8 @@ socialRoute.use("/api/posts*", requireAuth);
 socialRoute.use("/api/streaks", requireAuth);
 
 socialRoute.get("/api/feed", async (c) => {
-  const { posts, likedPostIds } = await getFeed(c.env, c.get("userId"));
-  return c.json({ posts: posts.map((p) => publicFeedPost(p, likedPostIds.has(p.post_id))) });
+  const posts = await getFeed(c.env, c.get("userId"));
+  return c.json({ posts });
 });
 
 const MAX_POST_PHOTO_BYTES = 10 * 1024 * 1024;

@@ -2,9 +2,10 @@
 // which keys exist — other languages are typed against it so a missing
 // translation is a compile error, not a silent fallback to English.
 const en = {
-  "nav.summary": "Summary",
+  "nav.checklist": "Checklist",
   "nav.food": "Food",
   "nav.workout": "Workout",
+  "nav.reports": "Reports",
   "nav.feed": "Feed",
   "nav.profile": "Profile",
 
@@ -38,6 +39,10 @@ const en = {
   "auth.forgotPassword": "Forgot password?",
   "auth.creatingAccount": "Creating account…",
   "auth.loggingIn": "Logging in…",
+  "auth.orContinueWith": "or continue with",
+  "auth.continueWithGoogle": "Continue with Google",
+  "auth.continueWithApple": "Continue with Apple",
+  "auth.signingIn": "Signing in…",
 
   "landing.headline1": "Train hard. Eat right.",
   "landing.headline2": "No fluff.",
@@ -149,9 +154,10 @@ export type TranslationKey = keyof typeof en;
 export type Dictionary = Record<TranslationKey, string>;
 
 const nl: Dictionary = {
-  "nav.summary": "Overzicht",
+  "nav.checklist": "Checklist",
   "nav.food": "Voeding",
   "nav.workout": "Workout",
+  "nav.reports": "Rapporten",
   "nav.feed": "Feed",
   "nav.profile": "Profiel",
 
@@ -185,6 +191,10 @@ const nl: Dictionary = {
   "auth.forgotPassword": "Wachtwoord vergeten?",
   "auth.creatingAccount": "Account aanmaken…",
   "auth.loggingIn": "Inloggen…",
+  "auth.orContinueWith": "of ga verder met",
+  "auth.continueWithGoogle": "Doorgaan met Google",
+  "auth.continueWithApple": "Doorgaan met Apple",
+  "auth.signingIn": "Inloggen…",
 
   "landing.headline1": "Train hard. Eet goed.",
   "landing.headline2": "Geen fluff.",

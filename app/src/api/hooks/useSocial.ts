@@ -57,7 +57,17 @@ export interface CardioFeedPost extends FeedPostBase {
   };
 }
 
-export type FeedPost = StrengthFeedPost | CardioFeedPost;
+export interface ChecklistFeedPost {
+  type: "checklist";
+  snapshotId: number;
+  createdAt: string;
+  user: PublicUser;
+  doneCount: number;
+  totalCount: number;
+  doneTitles: string[];
+}
+
+export type FeedPost = StrengthFeedPost | CardioFeedPost | ChecklistFeedPost;
 
 export function useFriends() {
   return useQuery({ queryKey: ["friends"], queryFn: () => api.get<{ friends: Friend[] }>("/friends").then((r) => r.friends) });

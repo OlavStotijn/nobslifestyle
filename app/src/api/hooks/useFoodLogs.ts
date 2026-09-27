@@ -15,6 +15,9 @@ export interface FoodItem {
   proteinPer100g: number;
   carbsPer100g: number;
   fatPer100g: number;
+  fiberPer100g: number | null;
+  sugarPer100g: number | null;
+  sodiumMgPer100g: number | null;
   imageUrl: string | null;
 }
 
@@ -62,6 +65,43 @@ export function useDailySummary(date: string) {
   });
 }
 
+export interface WeekDaySummary {
+  date: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  logs: FoodLog[];
+}
+
+export interface WeekSummary {
+  weekStart: string;
+  days: WeekDaySummary[];
+}
+
+export function useWeekSummary(weekStart?: string) {
+  const query = weekStart ? `?weekStart=${weekStart}` : "";
+  return useQuery({
+    queryKey: ["food-week", weekStart ?? "current"],
+    queryFn: () => api.get<WeekSummary>(`/food/logs/week${query}`),
+  });
+}
+
+export interface NutritionTrendWeek {
+  weekStart: string;
+  avgCalories: number;
+  avgProtein: number;
+  avgCarbs: number;
+  avgFat: number;
+}
+
+export function useNutritionTrend(weeks = 8) {
+  return useQuery({
+    queryKey: ["food-nutrition-trend", weeks],
+    queryFn: () => api.get<{ trend: NutritionTrendWeek[] }>(`/food/reports/nutrition?weeks=${weeks}`).then((r) => r.trend),
+  });
+}
+
 export function useSearchFood(query: string) {
   return useQuery({
     queryKey: ["food-search", query],
@@ -95,13 +135,28 @@ export function useScanLabel() {
   });
 }
 
+export function useUploadFoodImage() {
+  return useMutation({
+    mutationFn: (photo: Blob) => {
+      const form = new FormData();
+      form.append("image", photo, "food.jpg");
+      return api.postForm<{ imageR2Key: string }>("/food/image", form).then((r) => r.imageR2Key);
+    },
+  });
+}
+
 interface CreateFoodItemInput {
   name: string;
+  brand?: string;
+  servingSizeG?: number;
   caloriesPer100g: number;
   proteinPer100g: number;
   carbsPer100g: number;
   fatPer100g: number;
-  source?: "manual" | "ocr";
+  fiberPer100g?: number;
+  sugarPer100g?: number;
+  sodiumMgPer100g?: number;
+  source?: "manual" | "ocr" | "user";
   imageR2Key?: string;
 }
 

@@ -1,6 +1,7 @@
 import type { Env } from "../types";
 import type { SessionRow } from "./sessions";
 import { listSessionExercises, listSessionSets } from "./sessions";
+import { addDaysToDateString, startOfWeekInTz } from "./time";
 
 export type Badge = "pr" | "progress" | "on_target" | "regression";
 
@@ -185,4 +186,38 @@ export async function getExerciseHistory(env: Env, userId: number, exerciseId: n
     .bind(userId, exerciseId, limit)
     .all<ExerciseHistoryPoint>();
   return results;
+}
+
+export interface VolumeTrendWeek {
+  weekStart: string;
+  volumeKg: number;
+}
+
+// Total training volume (Σ reps×weight across every exercise) per week, for
+// the Reports strength-volume chart. training_sessions.started_at is a raw
+// instant (not a pre-resolved local date like food/cardio logs), so each row
+// needs its own timezone conversion before bucketing into a week.
+export async function getVolumeTrend(env: Env, userId: number, timezone: string, weeks: number): Promise<VolumeTrendWeek[]> {
+  const currentWeekStart = startOfWeekInTz(new Date(), timezone);
+  const weekStarts = Array.from({ length: weeks }, (_, i) => addDaysToDateString(currentWeekStart, -7 * (weeks - 1 - i)));
+  const cutoffIso = `${weekStarts[0]}T00:00:00.000Z`;
+
+  const { results } = await env.DB.prepare(
+    `SELECT ts.started_at AS startedAt, SUM(ss.reps * ss.weight_kg) AS volume
+     FROM session_sets ss
+     JOIN session_exercises se ON se.id = ss.session_exercise_id
+     JOIN training_sessions ts ON ts.id = se.session_id
+     WHERE ts.user_id = ? AND ts.finished_at IS NOT NULL AND ts.started_at >= ?
+     GROUP BY ts.id`
+  )
+    .bind(userId, cutoffIso)
+    .all<{ startedAt: string; volume: number }>();
+
+  const totals = new Map(weekStarts.map((w) => [w, 0]));
+  for (const row of results) {
+    const weekStart = startOfWeekInTz(new Date(row.startedAt), timezone);
+    if (totals.has(weekStart)) totals.set(weekStart, (totals.get(weekStart) ?? 0) + row.volume);
+  }
+
+  return weekStarts.map((weekStart) => ({ weekStart, volumeKg: Math.round(totals.get(weekStart) ?? 0) }));
 }

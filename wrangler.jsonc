@@ -21,7 +21,17 @@
     "MAIL_FROM_ADDRESS": "NoBSLifestyle <noreply@nobslifestyle.com>",
     "TURNSTILE_SITE_KEY": "0x4AAAAAAFDXuOLsXzZ6nZJs",
     "OPEN_FOOD_FACTS_USER_AGENT": "NoBSLifestyle/1.0 (olavstotijn@gmail.com)",
-    "VAPID_PUBLIC_KEY": "BCjJc41DBbYS0oURGVyXbIEsNATYu9CVRfwETrJTVZ7gmVbzlpeyVi8cik47kvCDf4P4I9G5FmN3MNSDfb1DFJ8"
+    "VAPID_PUBLIC_KEY": "BCjJc41DBbYS0oURGVyXbIEsNATYu9CVRfwETrJTVZ7gmVbzlpeyVi8cik47kvCDf4P4I9G5FmN3MNSDfb1DFJ8",
+    // Google/Apple sign-in client IDs — public identifiers (the "aud" claim
+    // of the ID tokens they issue), not secrets. Fill these in from Google
+    // Cloud Console / Apple Developer once those are set up; until then the
+    // corresponding login endpoint just rejects every token (empty audience
+    // list). See the Google/Apple sign-in setup notes for how to create them.
+    "GOOGLE_CLIENT_ID_WEB": "",
+    "GOOGLE_CLIENT_ID_IOS": "",
+    "GOOGLE_CLIENT_ID_ANDROID": "",
+    "APPLE_SERVICES_ID": "",
+    "APPLE_BUNDLE_ID": "com.nobslifestyle.app"
   },
   "d1_databases": [
     {
@@ -44,6 +54,11 @@
   ],
   "ai": {
     "binding": "AI"
+  },
+  // Checklist reminder sweep — checks every item with a reminder set against
+  // each owner's local time (see worker/src/lib/checklistReminders.ts).
+  "triggers": {
+    "crons": ["*/5 * * * *"]
   },
   "send_email": [
     {

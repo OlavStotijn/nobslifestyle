@@ -57,6 +57,19 @@ export function useCreateCardioSession() {
   });
 }
 
+export interface CardioTrendWeek {
+  weekStart: string;
+  running: { distanceM: number; durationS: number };
+  cycling: { distanceM: number; durationS: number };
+}
+
+export function useCardioTrend(weeks = 12) {
+  return useQuery({
+    queryKey: ["cardio-trend", weeks],
+    queryFn: () => api.get<{ trend: CardioTrendWeek[] }>(`/cardio-sessions/reports?weeks=${weeks}`).then((r) => r.trend),
+  });
+}
+
 export function useUpdateCardioSession() {
   const queryClient = useQueryClient();
   return useMutation({

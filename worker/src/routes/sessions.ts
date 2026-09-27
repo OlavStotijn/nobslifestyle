@@ -17,7 +17,10 @@ import {
   setProgressSummary,
   startSession,
 } from "../lib/sessions";
-import { computeSessionProgress, getExerciseHistory, listPersonalRecords } from "../lib/progress";
+import { computeSessionProgress, getExerciseHistory, getVolumeTrend, listPersonalRecords } from "../lib/progress";
+import { getNutritionProfile } from "../lib/nutritionProfile";
+import { autoCompleteLinkedChecklistItems } from "../lib/checklist";
+import { localDateInTz } from "../lib/time";
 
 export const sessionsRoute = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
 
@@ -140,6 +143,14 @@ sessionsRoute.post("/api/sessions/:id/finish", async (c) => {
   const progress = await computeSessionProgress(c.env, session);
   await setProgressSummary(c.env, session.id, JSON.stringify(progress));
 
+  c.executionCtx.waitUntil(
+    (async () => {
+      const profile = await getNutritionProfile(c.env, c.get("userId"));
+      const dateLocal = localDateInTz(new Date(), profile?.timezone ?? "Europe/Amsterdam");
+      await autoCompleteLinkedChecklistItems(c.env, c.get("userId"), { workoutSchemaId: session.schema_id, dateLocal });
+    })()
+  );
+
   return c.json({ session: await sessionWithExercises(c.env, c.get("userId"), session.id) });
 });
 
@@ -166,4 +177,12 @@ sessionsRoute.get("/api/progress/prs", async (c) => {
 sessionsRoute.get("/api/progress/exercise/:exerciseId/history", async (c) => {
   const history = await getExerciseHistory(c.env, c.get("userId"), Number(c.req.param("exerciseId")));
   return c.json({ history });
+});
+
+sessionsRoute.get("/api/progress/volume", async (c) => {
+  const userId = c.get("userId");
+  const weeks = Math.min(52, Math.max(1, Number(c.req.query("weeks")) || 12));
+  const profile = await getNutritionProfile(c.env, userId);
+  const trend = await getVolumeTrend(c.env, userId, profile?.timezone ?? "Europe/Amsterdam", weeks);
+  return c.json({ trend });
 });

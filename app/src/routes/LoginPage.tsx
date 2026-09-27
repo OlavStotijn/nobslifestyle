@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { api, ApiError } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { OAuthButtons } from "../components/OAuthButtons";
 import { useTranslation } from "../i18n/I18nContext";
 import type { User } from "../context/AuthContext";
 
@@ -75,6 +76,10 @@ export function LoginPage() {
             {submitting ? t("auth.loggingIn") : t("auth.login")}
           </button>
         </form>
+
+        <div className="mt-6">
+          <OAuthButtons onError={setError} />
+        </div>
 
         <p className="mt-6 text-center text-sm text-ink-muted">
           {t("auth.noAccount")}{" "}
