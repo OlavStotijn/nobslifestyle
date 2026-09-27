@@ -24,7 +24,11 @@ export function LoginPage() {
       // Refetch via /auth/me rather than trusting the login response
       // directly — /auth/me is the one endpoint that also resolves
       // isAdmin/impersonating, which the admin panel depends on.
-      await refresh();
+      const user = await refresh();
+      if (!user) {
+        setError("Logged in, but couldn't load your session. Please try again.");
+        return;
+      }
       navigate("/");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong.");

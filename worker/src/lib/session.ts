@@ -35,24 +35,31 @@ async function sign(payload: string, secret: string): Promise<string> {
   return b64url(sig);
 }
 
-// Secure cookies are silently dropped by real browsers over plain http://
-// (localhost dev), so it's only appended outside local development.
-function secureFlag(env: Env): string {
-  return env.ENVIRONMENT === "development" ? "" : " Secure;";
-}
-
-// Host-only by default (no Domain=), which would NOT share the cookie
-// between nobslifestyle.com and admin.nobslifestyle.com — needed so an
-// impersonation session started from the admin subdomain carries over when
-// the browser is sent to the main app. Skipped in dev (localhost has no
-// meaningful subdomain to share with).
-function cookieDomain(env: Env): string {
-  if (env.ENVIRONMENT === "development") return "";
-  try {
-    return `; Domain=.${new URL(env.APP_URL).hostname}`;
-  } catch {
-    return "";
+// Builds a Set-Cookie value from parts rather than ad-hoc concatenation —
+// the previous version of this file concatenated conditional attribute
+// fragments directly and produced `Domain=.nobslifestyle.com SameSite=Lax`
+// with no separating semicolon, an invalid Domain value that made browsers
+// silently drop the entire cookie in production. Joining a plain array
+// makes that class of bug structurally impossible.
+function buildCookie(env: Env, nameValue: string, maxAgeSeconds: number): string {
+  const parts = [nameValue, "Path=/", `Max-Age=${maxAgeSeconds}`, "HttpOnly"];
+  // Secure cookies are silently dropped by real browsers over plain http://
+  // (localhost dev), so it's only appended outside local development.
+  if (env.ENVIRONMENT !== "development") parts.push("Secure");
+  // Host-only by default (no Domain=), which would NOT share the cookie
+  // between nobslifestyle.com and admin.nobslifestyle.com — needed so an
+  // impersonation session started from the admin subdomain carries over
+  // when the browser is sent to the main app. Skipped in dev (localhost has
+  // no meaningful subdomain to share with).
+  if (env.ENVIRONMENT !== "development") {
+    try {
+      parts.push(`Domain=.${new URL(env.APP_URL).hostname}`);
+    } catch {
+      // malformed APP_URL — fall back to a host-only cookie rather than fail the request
+    }
   }
+  parts.push("SameSite=Lax");
+  return parts.join("; ");
 }
 
 export interface SessionPayload {
@@ -83,11 +90,11 @@ export async function makeSessionCookie(
 
   const payload = b64url(new TextEncoder().encode(JSON.stringify(payloadObj)));
   const sig = await sign(payload, env.SESSION_SECRET);
-  return `${COOKIE_NAME}=${payload}.${sig}; Path=/; Max-Age=${ttlSeconds}; HttpOnly;${secureFlag(env)}${cookieDomain(env)} SameSite=Lax`;
+  return buildCookie(env, `${COOKIE_NAME}=${payload}.${sig}`, ttlSeconds);
 }
 
 export function clearSessionCookie(env: Env): string {
-  return `${COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly;${secureFlag(env)}${cookieDomain(env)} SameSite=Lax`;
+  return buildCookie(env, `${COOKIE_NAME}=`, 0);
 }
 
 function getCookie(cookieHeader: string | null, name: string): string | null {

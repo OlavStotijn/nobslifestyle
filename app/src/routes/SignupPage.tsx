@@ -24,7 +24,11 @@ export function SignupPage() {
     setSubmitting(true);
     try {
       await api.post("/auth/signup", { email, password, displayName, turnstileToken });
-      await refresh();
+      const user = await refresh();
+      if (!user) {
+        setError("Account created, but couldn't load your session. Please try logging in.");
+        return;
+      }
       navigate("/");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong.");

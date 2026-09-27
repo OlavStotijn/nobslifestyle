@@ -21,7 +21,11 @@ export function OAuthButtons({ onError }: OAuthButtonsProps) {
     try {
       const { idToken } = await signInWithGoogle();
       await api.post("/auth/oauth/google", { idToken });
-      await refresh();
+      const user = await refresh();
+      if (!user) {
+        onError("Signed in, but couldn't load your session. Please try again.");
+        return;
+      }
       navigate("/");
     } catch (err) {
       onError(err instanceof ApiError ? err.message : "Google sign-in failed.");
@@ -36,7 +40,11 @@ export function OAuthButtons({ onError }: OAuthButtonsProps) {
     try {
       const { idToken, fullName } = await signInWithApple();
       await api.post("/auth/oauth/apple", { idToken, fullName });
-      await refresh();
+      const user = await refresh();
+      if (!user) {
+        onError("Signed in, but couldn't load your session. Please try again.");
+        return;
+      }
       navigate("/");
     } catch (err) {
       onError(err instanceof ApiError ? err.message : "Apple sign-in failed.");
