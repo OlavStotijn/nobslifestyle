@@ -12,6 +12,7 @@ import {
 import { useCardioSessionsForDate, type CardioSession } from "../api/hooks/useCardioSessions";
 import { useNutritionProfile } from "../api/hooks/useNutritionProfile";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { WaterTracker } from "../components/WaterTracker";
 import { formatDuration } from "../lib/geo";
 import { useUnits } from "../lib/useUnits";
 import { useTranslation } from "../i18n/I18nContext";
@@ -104,6 +105,10 @@ export function FoodPage() {
           {t("food.kcalRemaining")} · {consumed} {t("food.eaten")}
           {burned > 0 ? ` · +${burned} ${t("summary.fromActivity")}` : ""} / {target}
         </p>
+      </div>
+
+      <div className="mt-5">
+        <WaterTracker />
       </div>
 
       <div className="mt-6 flex flex-1 flex-col gap-5">

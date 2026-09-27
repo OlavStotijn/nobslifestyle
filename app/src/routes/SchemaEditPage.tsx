@@ -4,6 +4,7 @@ import {
   useAddSchemaExercise,
   useDeleteSchemaExercise,
   useExerciseSearch,
+  useExercisesByCategory,
   useSchema,
   useUpdateSchemaExercise,
   useUpdateSchemaVisibility,
@@ -15,15 +16,35 @@ import { ApiError } from "../api/client";
 import { BottomSheet } from "../components/BottomSheet";
 import { useDebounced } from "../hooks/useDebounced";
 import { CATEGORY_LABELS, CATEGORY_ORDER, MuscleGroupIcon, normalizeCategory } from "../components/MuscleGroupIcon";
+import { MuscleBodyDiagram } from "../components/MuscleBodyDiagram";
 
-function ExercisePicker({ onPick, onClose }: { onPick: (exercise: Exercise) => void; onClose: () => void }) {
+function ExerciseRow({ ex, onPick }: { ex: Exercise; onPick: (exercise: Exercise) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onPick(ex)}
+      className="flex items-center justify-between rounded-xl border border-border bg-bg px-4 py-3 text-left"
+    >
+      <span className="flex items-center gap-3">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft p-1.5 text-accent">
+          <MuscleGroupIcon category={ex.category} className="block h-full w-full" />
+        </span>
+        <span className="font-medium text-ink">{ex.name}</span>
+      </span>
+      {ex.category && <span className="text-sm text-ink-muted">{CATEGORY_LABELS[normalizeCategory(ex.category)]}</span>}
+    </button>
+  );
+}
+
+type PickerMode = "search" | "categories" | "muscle";
+
+function SearchPane({ onPick }: { onPick: (exercise: Exercise) => void }) {
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounced(query, 300);
   const { data: results, isFetching } = useExerciseSearch(debouncedQuery);
 
   return (
-    <BottomSheet open onClose={onClose}>
-      <h2 className="text-lg font-bold text-ink">Add an exercise</h2>
+    <>
       <input
         type="text"
         autoFocus
@@ -35,22 +56,104 @@ function ExercisePicker({ onPick, onClose }: { onPick: (exercise: Exercise) => v
       <div className="mt-3 flex max-h-72 flex-col gap-2 overflow-y-auto">
         {isFetching && <p className="text-ink-muted">Searching…</p>}
         {results?.map((ex) => (
+          <ExerciseRow key={ex.id} ex={ex} onPick={onPick} />
+        ))}
+      </div>
+    </>
+  );
+}
+
+function CategoryExerciseList({ category, onBack, onPick }: { category: string; onBack: () => void; onPick: (exercise: Exercise) => void }) {
+  const { data: results, isFetching } = useExercisesByCategory(category);
+  return (
+    <>
+      <button type="button" onClick={onBack} className="mt-3 self-start text-sm text-ink-muted">
+        ← {CATEGORY_LABELS[normalizeCategory(category)]}
+      </button>
+      <div className="mt-2 flex max-h-72 flex-col gap-2 overflow-y-auto">
+        {isFetching && <p className="text-ink-muted">Loading…</p>}
+        {results?.length === 0 && <p className="text-ink-muted">No exercises in this category yet.</p>}
+        {results?.map((ex) => (
+          <ExerciseRow key={ex.id} ex={ex} onPick={onPick} />
+        ))}
+      </div>
+    </>
+  );
+}
+
+function CategoriesPane({ onPick }: { onPick: (exercise: Exercise) => void }) {
+  const [category, setCategory] = useState<string | null>(null);
+
+  if (category) {
+    return <CategoryExerciseList category={category} onBack={() => setCategory(null)} onPick={onPick} />;
+  }
+
+  return (
+    <div className="mt-3 grid grid-cols-3 gap-2">
+      {CATEGORY_ORDER.map((c) => (
+        <button
+          key={c}
+          type="button"
+          onClick={() => setCategory(c)}
+          className="flex flex-col items-center gap-2 rounded-xl border border-border bg-bg px-2 py-3 text-center"
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-soft p-2 text-accent">
+            <MuscleGroupIcon category={c} className="block h-full w-full" />
+          </span>
+          <span className="text-xs font-medium text-ink">{CATEGORY_LABELS[c]}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function MusclePane({ onPick }: { onPick: (exercise: Exercise) => void }) {
+  const [category, setCategory] = useState<string | null>(null);
+
+  return (
+    <div className="mt-3">
+      <div className="h-64">
+        <MuscleBodyDiagram selected={category} onSelect={(c) => setCategory(c)} />
+      </div>
+      {category ? (
+        <CategoryExerciseList category={category} onBack={() => setCategory(null)} onPick={onPick} />
+      ) : (
+        <p className="mt-2 text-center text-sm text-ink-muted">Tap a muscle group to see exercises for it.</p>
+      )}
+    </div>
+  );
+}
+
+function ExercisePicker({ onPick, onClose }: { onPick: (exercise: Exercise) => void; onClose: () => void }) {
+  const [mode, setMode] = useState<PickerMode>("search");
+  const modes: { key: PickerMode; label: string }[] = [
+    { key: "search", label: "Search" },
+    { key: "categories", label: "Categories" },
+    { key: "muscle", label: "Muscle map" },
+  ];
+
+  return (
+    <BottomSheet open onClose={onClose}>
+      <h2 className="text-lg font-bold text-ink">Add an exercise</h2>
+
+      <div className="mt-3 flex gap-2 rounded-xl bg-bg p-1">
+        {modes.map((m) => (
           <button
-            key={ex.id}
+            key={m.key}
             type="button"
-            onClick={() => onPick(ex)}
-            className="flex items-center justify-between rounded-xl border border-border bg-bg px-4 py-3 text-left"
+            onClick={() => setMode(m.key)}
+            className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
+              mode === m.key ? "bg-accent text-white" : "text-ink-muted"
+            }`}
           >
-            <span className="flex items-center gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft p-1.5 text-accent">
-                <MuscleGroupIcon category={ex.category} className="block h-full w-full" />
-              </span>
-              <span className="font-medium text-ink">{ex.name}</span>
-            </span>
-            {ex.category && <span className="text-sm text-ink-muted">{CATEGORY_LABELS[normalizeCategory(ex.category)]}</span>}
+            {m.label}
           </button>
         ))}
       </div>
+
+      {mode === "search" && <SearchPane onPick={onPick} />}
+      {mode === "categories" && <CategoriesPane onPick={onPick} />}
+      {mode === "muscle" && <MusclePane onPick={onPick} />}
     </BottomSheet>
   );
 }

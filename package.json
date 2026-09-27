@@ -7,9 +7,9 @@
     "dev": "wrangler dev --port 8787 --persist-to ../nobslifestyle-local-state",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit",
-    "db:migrate:local": "wrangler d1 execute nobslifestyle --local --file=./db/schema.sql",
+    "db:migrate:local": "wrangler d1 execute nobslifestyle --local --persist-to ../nobslifestyle-local-state --file=./db/schema.sql",
     "db:migrate:remote": "wrangler d1 execute nobslifestyle --remote --file=./db/schema.sql",
-    "db:seed:local": "wrangler d1 execute nobslifestyle --local --file=./db/seed_exercises.sql",
+    "db:seed:local": "wrangler d1 execute nobslifestyle --local --persist-to ../nobslifestyle-local-state --file=./db/seed_exercises.sql",
     "db:seed:remote": "wrangler d1 execute nobslifestyle --remote --file=./db/seed_exercises.sql"
   },
   "dependencies": {

@@ -6,6 +6,7 @@ import {
   useBarcodeLookup,
   useCreateFoodItem,
   useCreateFoodLog,
+  useDeleteSavedMeal,
   useFavoriteFoods,
   useLogSavedMeal,
   useRecentFoods,
@@ -20,6 +21,7 @@ import {
 } from "../api/hooks/useFoodLogs";
 import { CameraCapture } from "../components/CameraCapture";
 import { useDebounced } from "../hooks/useDebounced";
+import { amountPresets } from "../lib/foodAmounts";
 
 // @zxing/library is ~450KB minified — only the Scan tab needs it, so it's
 // lazy-loaded instead of bloating every page's initial bundle.
@@ -29,8 +31,8 @@ type Tab = "quick" | "search" | "scan" | "photo";
 
 function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   const tabs: { key: Tab; label: string }[] = [
-    { key: "quick", label: "Quick" },
     { key: "search", label: "Search" },
+    { key: "quick", label: "Quick" },
     { key: "scan", label: "Scan" },
     { key: "photo", label: "Photo" },
   ];
@@ -69,44 +71,67 @@ function SearchResultRow({ item, onSelect }: { item: FoodItem; onSelect: (item: 
 }
 
 function QuickTab({ onSelect, onLoggedSavedMeal }: { onSelect: (item: FoodItem) => void; onLoggedSavedMeal: () => void }) {
+  const navigate = useNavigate();
   const { data: favorites, isLoading: favoritesLoading } = useFavoriteFoods();
   const { data: recent, isLoading: recentLoading } = useRecentFoods();
   const { data: savedMeals, isLoading: mealsLoading } = useSavedMeals();
   const date = todayLocalDate();
   const logSavedMeal = useLogSavedMeal(date);
+  const deleteSavedMeal = useDeleteSavedMeal();
 
   const loading = favoritesLoading || recentLoading || mealsLoading;
-  const nothingSaved = !loading && !favorites?.length && !recent?.length && !savedMeals?.length;
 
   return (
     <div className="mt-4 flex flex-1 flex-col gap-6 overflow-y-auto">
       {loading && <p className="text-ink-muted">Loading…</p>}
-      {nothingSaved && <p className="text-ink-muted">Log a few things and they'll show up here for quick re-adding.</p>}
 
-      {savedMeals && savedMeals.length > 0 && (
-        <div>
+      <div>
+        <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">Saved meals</h2>
+          <button type="button" onClick={() => navigate("/food/meals/new")} className="text-xs font-semibold text-accent">
+            + New meal
+          </button>
+        </div>
+        {!loading && !savedMeals?.length && (
+          <p className="mt-2 text-sm text-ink-muted">
+            Build a meal you eat often — like yoghurt with chia seeds — and log the whole thing in one tap.
+          </p>
+        )}
+        {savedMeals && savedMeals.length > 0 && (
           <div className="mt-2 flex flex-col gap-2">
             {savedMeals.map((meal) => (
-              <button
-                key={meal.id}
-                type="button"
-                disabled={logSavedMeal.isPending}
-                onClick={async () => {
-                  await logSavedMeal.mutateAsync(meal.id);
-                  onLoggedSavedMeal();
-                }}
-                className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 text-left disabled:opacity-50"
-              >
-                <div>
-                  <p className="font-medium text-ink">{meal.name}</p>
-                  <p className="text-sm text-ink-muted">{meal.items.length} items</p>
-                </div>
-                <span className="text-sm font-semibold text-accent">Log all</span>
-              </button>
+              <div key={meal.id} className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-3">
+                <button
+                  type="button"
+                  disabled={logSavedMeal.isPending}
+                  onClick={async () => {
+                    await logSavedMeal.mutateAsync(meal.id);
+                    onLoggedSavedMeal();
+                  }}
+                  className="flex min-w-0 flex-1 items-center justify-between text-left disabled:opacity-50"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-ink">{meal.name}</p>
+                    <p className="text-sm text-ink-muted">{meal.items.length} items</p>
+                  </div>
+                  <span className="ml-3 shrink-0 text-sm font-semibold text-accent">Log all</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deleteSavedMeal.mutate(meal.id)}
+                  aria-label={`Delete ${meal.name}`}
+                  className="shrink-0 px-1 text-ink-muted hover:text-red-500"
+                >
+                  ✕
+                </button>
+              </div>
             ))}
           </div>
-        </div>
+        )}
+      </div>
+
+      {!loading && !favorites?.length && !recent?.length && (
+        <p className="text-ink-muted">Log a few things and they'll show up here for quick re-adding.</p>
       )}
 
       {favorites && favorites.length > 0 && (
@@ -361,11 +386,18 @@ function PhotoTab({ onExtracted }: { onExtracted: (result: OcrResult, imageR2Key
 function QuantityStep({ item, source, onBack, onAdded }: { item: FoodItem; source: FoodLogSource; onBack: () => void; onAdded: () => void }) {
   const date = todayLocalDate();
   const [quantity, setQuantity] = useState(item.servingSizeG ?? 100);
+  const [quantityText, setQuantityText] = useState(String(item.servingSizeG ?? 100));
   const createMutation = useCreateFoodLog(date);
   const { data: favorites } = useFavoriteFoods();
   const isFavorite = favorites?.some((f) => f.id === item.id) ?? false;
   const addFavorite = useAddFavoriteFood();
   const removeFavorite = useRemoveFavoriteFood();
+  const presets = amountPresets(item.servingSizeG);
+
+  function applyQuantity(grams: number) {
+    setQuantity(grams);
+    setQuantityText(String(grams));
+  }
 
   const factor = quantity / 100;
   const calories = Math.round(item.caloriesPer100g * factor);
@@ -402,22 +434,47 @@ function QuantityStep({ item, source, onBack, onAdded }: { item: FoodItem; sourc
       <div className="mt-6 flex items-center justify-center gap-4">
         <button
           type="button"
-          onClick={() => setQuantity((q) => Math.max(10, q - 10))}
-          className="h-12 w-12 rounded-full border border-border text-xl font-bold text-ink"
+          onClick={() => applyQuantity(Math.max(1, quantity - 10))}
+          className="h-12 w-12 shrink-0 rounded-full border border-border text-xl font-bold text-ink"
         >
           −
         </button>
-        <div className="text-center">
-          <p className="text-3xl font-bold text-ink">{quantity}</p>
-          <p className="text-sm text-ink-muted">grams</p>
+        <div className="flex items-baseline gap-2">
+          <input
+            type="number"
+            inputMode="decimal"
+            value={quantityText}
+            onChange={(e) => {
+              setQuantityText(e.target.value);
+              const n = Number(e.target.value);
+              if (n > 0) setQuantity(n);
+            }}
+            className="w-24 rounded-xl border border-border bg-surface px-2 py-2 text-center text-3xl font-bold text-ink outline-none focus:border-accent"
+          />
+          <span className="text-sm text-ink-muted">grams</span>
         </div>
         <button
           type="button"
-          onClick={() => setQuantity((q) => q + 10)}
-          className="h-12 w-12 rounded-full border border-border text-xl font-bold text-ink"
+          onClick={() => applyQuantity(quantity + 10)}
+          className="h-12 w-12 shrink-0 rounded-full border border-border text-xl font-bold text-ink"
         >
           +
         </button>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {presets.map((p) => (
+          <button
+            key={p.label}
+            type="button"
+            onClick={() => applyQuantity(p.grams)}
+            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+              quantity === p.grams ? "border-accent bg-accent-soft text-accent" : "border-border bg-surface text-ink"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
       </div>
 
       <div className="mt-6 rounded-2xl border border-border bg-surface p-6 text-center">
@@ -454,7 +511,7 @@ function QuantityStep({ item, source, onBack, onAdded }: { item: FoodItem; sourc
 
 export function AddFoodPage() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>("quick");
+  const [tab, setTab] = useState<Tab>("search");
   const [selected, setSelected] = useState<{ item: FoodItem; source: FoodLogSource } | null>(null);
   const [ocrPending, setOcrPending] = useState<{ result: OcrResult; imageR2Key: string } | null>(null);
 

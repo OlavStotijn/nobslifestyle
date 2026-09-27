@@ -45,6 +45,15 @@ export function useExerciseSearch(query: string) {
   });
 }
 
+export function useExercisesByCategory(category: string | null) {
+  return useQuery({
+    queryKey: ["exercises", "category", category],
+    queryFn: () => api.get<{ exercises: Exercise[] }>(`/exercises?category=${encodeURIComponent(category!)}`).then((r) => r.exercises),
+    enabled: category != null,
+    staleTime: 60_000,
+  });
+}
+
 export function useSchemas() {
   return useQuery({
     queryKey: ["schemas"],

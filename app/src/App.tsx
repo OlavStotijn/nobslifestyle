@@ -10,6 +10,7 @@ import { SummaryPage } from "./routes/SummaryPage";
 import { OnboardingPage } from "./routes/OnboardingPage";
 import { FoodPage } from "./routes/FoodPage";
 import { AddFoodPage } from "./routes/AddFoodPage";
+import { MealBuilderPage } from "./routes/MealBuilderPage";
 import { WorkoutsPage } from "./routes/WorkoutsPage";
 import { NewSchemaPage } from "./routes/NewSchemaPage";
 import { SchemaEditPage } from "./routes/SchemaEditPage";
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="/verify-email-required" element={<VerifyEmailRequiredPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/food/add" element={<AddFoodPage />} />
+        <Route path="/food/meals/new" element={<MealBuilderPage />} />
         <Route path="/workouts/new" element={<NewSchemaPage />} />
         <Route path="/workouts/:id/edit" element={<SchemaEditPage />} />
         <Route path="/sessions/:id" element={<SessionRunnerPage />} />
