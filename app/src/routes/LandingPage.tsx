@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "../i18n/I18nContext";
 import type { TranslationKey } from "../i18n/translations";
 
@@ -14,6 +15,7 @@ const FEATURES: { icon: string; titleKey: TranslationKey; bodyKey: TranslationKe
 
 export function LandingPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
 
   return (
     <div className="min-h-full bg-bg">
@@ -25,9 +27,11 @@ export function LandingPage() {
           </div>
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <Link to="/login" className="text-sm font-semibold text-ink-muted">
-              {t("auth.login")}
-            </Link>
+            {!user && (
+              <Link to="/login" className="text-sm font-semibold text-ink-muted">
+                {t("auth.login")}
+              </Link>
+            )}
           </div>
         </div>
 
@@ -38,18 +42,29 @@ export function LandingPage() {
           <p className="mt-5 max-w-xl text-lg text-ink-muted">{t("landing.subheadline")}</p>
 
           <div className="mt-8 flex w-full max-w-xs flex-col gap-3 sm:w-auto sm:flex-row">
-            <Link
-              to="/signup"
-              className="rounded-xl bg-accent px-8 py-3.5 text-center font-semibold text-white shadow-lg shadow-accent/20"
-            >
-              {t("landing.getStartedFree")}
-            </Link>
-            <Link
-              to="/login"
-              className="rounded-xl border border-border px-8 py-3.5 text-center font-semibold text-ink"
-            >
-              {t("auth.login")}
-            </Link>
+            {user ? (
+              <Link
+                to="/"
+                className="rounded-xl bg-accent px-8 py-3.5 text-center font-semibold text-white shadow-lg shadow-accent/20"
+              >
+                {t("common.continue")}
+              </Link>
+            ) : (
+              <>
+                <Link
+                  to="/signup"
+                  className="rounded-xl bg-accent px-8 py-3.5 text-center font-semibold text-white shadow-lg shadow-accent/20"
+                >
+                  {t("landing.getStartedFree")}
+                </Link>
+                <Link
+                  to="/login"
+                  className="rounded-xl border border-border px-8 py-3.5 text-center font-semibold text-ink"
+                >
+                  {t("auth.login")}
+                </Link>
+              </>
+            )}
           </div>
         </div>
 
@@ -63,20 +78,30 @@ export function LandingPage() {
           ))}
         </div>
 
-        <div className="mt-20 flex flex-col items-center rounded-3xl border border-border bg-surface px-8 py-14 text-center sm:mt-28">
-          <h2 className="text-2xl font-bold text-ink sm:text-3xl">{t("landing.readyHeadline")}</h2>
-          <p className="mt-2 max-w-md text-ink-muted">{t("landing.readySubtitle")}</p>
-          <Link
-            to="/signup"
-            className="mt-6 rounded-xl bg-accent px-8 py-3.5 text-center font-semibold text-white shadow-lg shadow-accent/20"
-          >
-            {t("landing.createAccount")}
-          </Link>
-        </div>
+        {!user && (
+          <div className="mt-20 flex flex-col items-center rounded-3xl border border-border bg-surface px-8 py-14 text-center sm:mt-28">
+            <h2 className="text-2xl font-bold text-ink sm:text-3xl">{t("landing.readyHeadline")}</h2>
+            <p className="mt-2 max-w-md text-ink-muted">{t("landing.readySubtitle")}</p>
+            <Link
+              to="/signup"
+              className="mt-6 rounded-xl bg-accent px-8 py-3.5 text-center font-semibold text-white shadow-lg shadow-accent/20"
+            >
+              {t("landing.createAccount")}
+            </Link>
+          </div>
+        )}
 
         <footer className="mt-16 flex flex-col items-center gap-1 pb-8 text-center text-xs text-ink-muted">
           <p>NoBSLifestyle.com</p>
           <p>{t("landing.footerTagline")}</p>
+          <p className="mt-2 flex gap-3">
+            <Link to="/privacy" className="underline">
+              {t("legal.privacyPolicy")}
+            </Link>
+            <Link to="/terms" className="underline">
+              {t("legal.termsOfService")}
+            </Link>
+          </p>
         </footer>
       </div>
     </div>

@@ -88,6 +88,18 @@ export function SignupPage() {
 
           <TurnstileWidget onToken={setTurnstileToken} />
 
+          <p className="text-xs text-ink-muted">
+            {t("auth.bySigningUpAgree")}{" "}
+            <Link to="/terms" className="font-medium text-accent">
+              {t("legal.termsOfService")}
+            </Link>{" "}
+            &{" "}
+            <Link to="/privacy" className="font-medium text-accent">
+              {t("legal.privacyPolicy")}
+            </Link>
+            .
+          </p>
+
           {error && <p className="text-sm text-red-500">{error}</p>}
 
           <button

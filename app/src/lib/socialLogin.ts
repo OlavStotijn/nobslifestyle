@@ -15,6 +15,12 @@ function ensureInitialized(): Promise<void> {
         webClientId: GOOGLE_CLIENT_ID_WEB,
         iOSClientId: GOOGLE_CLIENT_ID_IOS,
         iOSServerClientId: GOOGLE_CLIENT_ID_WEB,
+        // On web the plugin redirects back to this exact URL after the Google
+        // popup — without it, it defaults to whatever page triggered the
+        // login (e.g. /login vs /signup), which would need registering both.
+        // Pinning it to the origin means only one Authorized redirect URI is
+        // needed in Google Cloud Console, same reasoning as Apple's below.
+        redirectUrl: window.location.origin,
       },
       apple: {
         clientId: APPLE_SERVICES_ID,

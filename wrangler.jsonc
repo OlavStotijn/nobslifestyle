@@ -28,10 +28,10 @@
     // Cloud Console / Apple Developer once those are set up; until then the
     // corresponding login endpoint just rejects every token (empty audience
     // list). See the Google/Apple sign-in setup notes for how to create them.
-    "GOOGLE_CLIENT_ID_WEB": "",
-    "GOOGLE_CLIENT_ID_IOS": "",
-    "GOOGLE_CLIENT_ID_ANDROID": "",
-    "APPLE_SERVICES_ID": "",
+    "GOOGLE_CLIENT_ID_WEB": "187351487467-9k8avai3vtuo341turauqib3sptq5n5n.apps.googleusercontent.com",
+    "GOOGLE_CLIENT_ID_IOS": "187351487467-kej2emqeoj3lua7bkgqd29mp52qb57up.apps.googleusercontent.com",
+    "GOOGLE_CLIENT_ID_ANDROID": "187351487467-35kvaqkiphflr10j6hump9m71ocvnd40.apps.googleusercontent.com",
+    "APPLE_SERVICES_ID": "com.nobslifestyle.app.web",
     "APPLE_BUNDLE_ID": "com.nobslifestyle.app",
     "ADMIN_EMAIL": "olavstotijn@gmail.com"
   },

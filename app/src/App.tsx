@@ -32,51 +32,61 @@ import { ReportsPage } from "./routes/ReportsPage";
 import { ProtectedRoute } from "./routes/ProtectedRoute";
 import { AppLayout } from "./components/layout/AppLayout";
 import { useSyncListener } from "./api/hooks/useSyncListener";
+import { PrivacyPolicyPage } from "./routes/PrivacyPolicyPage";
+import { TermsOfServicePage } from "./routes/TermsOfServicePage";
+import { CookieConsentBanner } from "./components/CookieConsentBanner";
+import { HomePage } from "./routes/HomePage";
 
 export default function App() {
   useSyncListener();
 
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignupPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route path="/verify-email" element={<VerifyEmailPage />} />
-      <Route path="/" element={<RootPage />} />
+    <>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsOfServicePage />} />
+        <Route path="/home" element={<HomePage />} />
+        <Route path="/" element={<RootPage />} />
 
-      <Route element={<ProtectedRoute />}>
-        <Route path="/verify-email-required" element={<VerifyEmailRequiredPage />} />
-        <Route path="/onboarding" element={<OnboardingPage />} />
-        <Route path="/food/add" element={<AddFoodPage />} />
-        <Route path="/food/week" element={<FoodWeekPage />} />
-        <Route path="/food/meals/new" element={<MealBuilderPage />} />
-        <Route path="/workouts/new" element={<NewSchemaPage />} />
-        <Route path="/workouts/:id/edit" element={<SchemaEditPage />} />
-        <Route path="/sessions/:id" element={<SessionRunnerPage />} />
-        <Route path="/sessions/:id/share" element={<ShareWorkoutPage />} />
-        <Route path="/cardio/:activityType" element={<CardioSessionPage />} />
-        <Route path="/friends" element={<FriendsPage />} />
-        <Route path="/friends/add" element={<AddFriendPage />} />
-        <Route path="/friends/:id" element={<FriendProfilePage />} />
-        <Route path="/profile/settings" element={<SettingsPage />} />
-        <Route path="/profile/progress-photos/add" element={<AddProgressPhotoPage />} />
-        <Route path="/progress/prs" element={<PersonalRecordsPage />} />
-        <Route path="/programs" element={<ProgramsPage />} />
-        <Route path="/checklist/new" element={<ChecklistFormPage />} />
-        <Route path="/checklist/:id/edit" element={<ChecklistFormPage />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/verify-email-required" element={<VerifyEmailRequiredPage />} />
+          <Route path="/onboarding" element={<OnboardingPage />} />
+          <Route path="/food/add" element={<AddFoodPage />} />
+          <Route path="/food/week" element={<FoodWeekPage />} />
+          <Route path="/food/meals/new" element={<MealBuilderPage />} />
+          <Route path="/workouts/new" element={<NewSchemaPage />} />
+          <Route path="/workouts/:id/edit" element={<SchemaEditPage />} />
+          <Route path="/sessions/:id" element={<SessionRunnerPage />} />
+          <Route path="/sessions/:id/share" element={<ShareWorkoutPage />} />
+          <Route path="/cardio/:activityType" element={<CardioSessionPage />} />
+          <Route path="/friends" element={<FriendsPage />} />
+          <Route path="/friends/add" element={<AddFriendPage />} />
+          <Route path="/friends/:id" element={<FriendProfilePage />} />
+          <Route path="/profile/settings" element={<SettingsPage />} />
+          <Route path="/profile/progress-photos/add" element={<AddProgressPhotoPage />} />
+          <Route path="/progress/prs" element={<PersonalRecordsPage />} />
+          <Route path="/programs" element={<ProgramsPage />} />
+          <Route path="/checklist/new" element={<ChecklistFormPage />} />
+          <Route path="/checklist/:id/edit" element={<ChecklistFormPage />} />
 
-        <Route element={<AppLayout />}>
-          <Route path="/checklist" element={<ChecklistPage />} />
-          <Route path="/workouts" element={<WorkoutsPage />} />
-          <Route path="/food" element={<FoodPage />} />
-          <Route path="/reports" element={<ReportsPage />} />
-          <Route path="/feed" element={<FeedPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
+          <Route element={<AppLayout />}>
+            <Route path="/checklist" element={<ChecklistPage />} />
+            <Route path="/workouts" element={<WorkoutsPage />} />
+            <Route path="/food" element={<FoodPage />} />
+            <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/feed" element={<FeedPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+          </Route>
         </Route>
-      </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <CookieConsentBanner />
+    </>
   );
 }

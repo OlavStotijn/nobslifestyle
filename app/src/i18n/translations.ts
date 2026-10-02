@@ -148,6 +148,12 @@ const en = {
   "settings.units": "Units",
   "settings.weightUnit": "Weight",
   "settings.distanceUnit": "Distance",
+
+  "legal.privacyPolicy": "Privacy Policy",
+  "legal.termsOfService": "Terms of Service",
+  "legal.cookieNotice": "We use essential cookies to keep you signed in and to keep the app secure. Read our",
+  "legal.cookieAccept": "Got it",
+  "auth.bySigningUpAgree": "By creating an account, you agree to our",
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -300,6 +306,12 @@ const nl: Dictionary = {
   "settings.units": "Eenheden",
   "settings.weightUnit": "Gewicht",
   "settings.distanceUnit": "Afstand",
+
+  "legal.privacyPolicy": "Privacybeleid",
+  "legal.termsOfService": "Gebruiksvoorwaarden",
+  "legal.cookieNotice": "We gebruiken alleen noodzakelijke cookies om je ingelogd en de app veilig te houden. Lees ons",
+  "legal.cookieAccept": "Begrepen",
+  "auth.bySigningUpAgree": "Door een account aan te maken ga je akkoord met onze",
 };
 
 export const DICTIONARIES = { en, nl } as const;
