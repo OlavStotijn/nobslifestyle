@@ -4,6 +4,7 @@ import { useFriendProgressPhotos } from "../api/hooks/useProgressPhotos";
 import { useCopySchema, useFriendSchemas } from "../api/hooks/useWorkouts";
 import { ProgressPhotoGrid } from "../components/ProgressPhotoGrid";
 import { ApiError } from "../api/client";
+import { ReportBlockMenu } from "../components/ReportBlockMenu";
 
 interface LocationState {
   displayName?: string;
@@ -55,9 +56,18 @@ export function FriendProfilePage() {
 
   return (
     <div className="flex min-h-full flex-col bg-bg px-6 py-8">
-      <button type="button" onClick={() => navigate("/friends")} className="self-start text-sm text-ink-muted">
-        ← Friends
-      </button>
+      <div className="flex items-center justify-between">
+        <button type="button" onClick={() => navigate("/friends")} className="text-sm text-ink-muted">
+          ← Friends
+        </button>
+        <ReportBlockMenu
+          targetType="user"
+          targetId={friendUserId}
+          authorId={friendUserId}
+          authorName={state.displayName ?? "this user"}
+          onBlocked={() => navigate("/friends")}
+        />
+      </div>
 
       <h1 className="mt-4 text-2xl font-bold text-ink">{state.displayName ?? "Friend"}</h1>
       {state.username && <p className="text-sm text-ink-muted">@{state.username}</p>}

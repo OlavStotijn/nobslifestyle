@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import { useFriendRequests, useFriends, useRespondToFriendRequest } from "../api/hooks/useSocial";
-import { ThemeToggle } from "../components/ThemeToggle";
 
 export function FriendsPage() {
   const { data: friends, isLoading } = useFriends();
@@ -13,7 +12,6 @@ export function FriendsPage() {
         <Link to="/feed" className="text-sm text-ink-muted">
           ← Feed
         </Link>
-        <ThemeToggle />
       </div>
 
       <h1 className="mt-4 text-2xl font-bold text-ink">Friends</h1>

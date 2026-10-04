@@ -1,5 +1,6 @@
 import type { Env } from "../types";
 import { getFriendUserIds } from "./friendships";
+import { blockedEitherWay } from "./safety";
 
 export interface FeedPostRow {
   post_id: number;
@@ -134,7 +135,7 @@ export async function getFeed(env: Env, userId: number, limit = 30): Promise<Fee
   const placeholders = authorIds.map(() => "?").join(",");
 
   const { results: postRows } = await env.DB.prepare(
-    `${FEED_SELECT} WHERE p.user_id IN (${placeholders}) ORDER BY p.created_at DESC LIMIT ?`
+    `${FEED_SELECT} WHERE p.user_id IN (${placeholders}) AND NOT ${blockedEitherWay(userId, "p.user_id")} ORDER BY p.created_at DESC LIMIT ?`
   )
     .bind(...authorIds, limit)
     .all<FeedPostRow>();
@@ -155,7 +156,7 @@ export async function getFeed(env: Env, userId: number, limit = 30): Promise<Fee
             cs.done_count, cs.total_count, cs.done_titles, cs.created_at
      FROM checklist_snapshots cs
      JOIN users u ON u.id = cs.user_id
-     WHERE cs.user_id IN (${placeholders})
+     WHERE cs.user_id IN (${placeholders}) AND NOT ${blockedEitherWay(userId, "cs.user_id")}
      ORDER BY cs.created_at DESC LIMIT ?`
   )
     .bind(...authorIds, limit)

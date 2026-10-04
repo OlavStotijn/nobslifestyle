@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { useSchemas } from "../api/hooks/useWorkouts";
 import { useSessions, useStartSession, type Badge } from "../api/hooks/useSessions";
 import { useTodaysWorkout } from "../api/hooks/usePrograms";
-import { ThemeToggle } from "../components/ThemeToggle";
 import { BottomSheet } from "../components/BottomSheet";
 import { ApiError } from "../api/client";
 
@@ -124,7 +123,6 @@ export function WorkoutsPage() {
         <Link to="/programs" className="text-sm font-semibold text-accent">
           Programs
         </Link>
-        <ThemeToggle />
       </div>
 
       <h1 className="mt-4 text-2xl font-bold text-ink">Your workouts</h1>

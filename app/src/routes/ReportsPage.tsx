@@ -1,5 +1,4 @@
 import { lazy, Suspense, useState } from "react";
-import { ThemeToggle } from "../components/ThemeToggle";
 
 // Recharts is a sizeable dependency — lazy-loaded so it only loads for
 // people who actually open Reports, same pattern as BarcodeScanner in
@@ -25,7 +24,6 @@ export function ReportsPage() {
     <div className="flex min-h-full flex-col bg-bg px-6 py-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-ink">Reports</h1>
-        <ThemeToggle />
       </div>
 
       <div className="mt-4 flex gap-2 rounded-xl bg-surface-2 p-1">

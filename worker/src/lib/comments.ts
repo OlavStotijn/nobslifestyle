@@ -1,4 +1,5 @@
 import type { Env } from "../types";
+import { blockedEitherWay, isBlockedEitherWay } from "./safety";
 
 export interface CommentRow {
   id: number;
@@ -25,12 +26,12 @@ export function publicComment(row: CommentRow) {
   };
 }
 
-export async function listComments(env: Env, postId: number): Promise<CommentRow[]> {
+export async function listComments(env: Env, viewerId: number, postId: number): Promise<CommentRow[]> {
   const { results } = await env.DB.prepare(
     `SELECT pc.*, u.display_name, u.username, u.avatar_r2_key
      FROM post_comments pc
      JOIN users u ON u.id = pc.user_id
-     WHERE pc.post_id = ? ORDER BY pc.created_at ASC`
+     WHERE pc.post_id = ? AND NOT ${blockedEitherWay(viewerId, "pc.user_id")} ORDER BY pc.created_at ASC`
   )
     .bind(postId)
     .all<CommentRow>();
@@ -47,6 +48,7 @@ export async function addComment(
 ): Promise<{ comment: CommentRow; postAuthorId: number } | null> {
   const post = await env.DB.prepare("SELECT user_id FROM posts WHERE id = ?").bind(postId).first<{ user_id: number }>();
   if (!post) return null;
+  if (await isBlockedEitherWay(env, userId, post.user_id)) return null;
 
   const result = await env.DB.prepare("INSERT INTO post_comments (post_id, user_id, body) VALUES (?, ?, ?)")
     .bind(postId, userId, body)

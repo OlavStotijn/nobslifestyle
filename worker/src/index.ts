@@ -18,6 +18,7 @@ import { exportRoute } from "./routes/export";
 import { waterRoute } from "./routes/water";
 import { checklistRoute } from "./routes/checklist";
 import { adminRoute } from "./routes/admin";
+import { safetyRoute } from "./routes/safety";
 import { sendDueChecklistReminders } from "./lib/checklistReminders";
 
 const app = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
@@ -59,6 +60,7 @@ app.route("/", exportRoute);
 app.route("/", waterRoute);
 app.route("/", checklistRoute);
 app.route("/", adminRoute);
+app.route("/", safetyRoute);
 
 // Any /api/* path that didn't match a route above is a genuinely unknown
 // API endpoint — respond JSON, don't fall through to the SPA shell below.

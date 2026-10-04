@@ -100,6 +100,38 @@ export interface ModerationPhoto {
   createdAt: string;
 }
 
+export interface AdminReport {
+  id: number;
+  targetType: "post" | "comment" | "user";
+  targetId: number;
+  targetUserId: number;
+  targetName: string;
+  reporterName: string;
+  reason: string;
+  details: string | null;
+  content: string | null;
+  createdAt: string;
+}
+
+export function useReports() {
+  return useQuery({
+    queryKey: ["admin-reports"],
+    queryFn: () => api.get<{ reports: AdminReport[] }>("/admin/reports").then((r) => r.reports),
+  });
+}
+
+export function useResolveReport() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, removeContent }: { id: number; removeContent: boolean }) =>
+      api.post(`/admin/reports/${id}/resolve`, { removeContent }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-reports"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-moderation"] });
+    },
+  });
+}
+
 export function useModerationQueue() {
   return useQuery({
     queryKey: ["admin-moderation"],

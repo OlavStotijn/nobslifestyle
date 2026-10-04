@@ -5,6 +5,7 @@ import { requireAuth } from "../middleware/requireAuth";
 import { requireAdmin } from "../middleware/requireAdmin";
 import { getUserById, publicUser } from "../lib/users";
 import { makeSessionCookie } from "../lib/session";
+import { listOpenReports, resolveReport } from "../lib/safety";
 import {
   deleteUserAccount,
   getAdminMetrics,
@@ -177,5 +178,33 @@ adminRoute.post("/api/admin/moderation/:type/:id/remove", requireAdmin, async (c
   const ok = await removeModeratedPhoto(c.env, type, id);
   if (!ok) return c.json({ error: "Not found." }, 404);
   await logAdminAction(c.env, c.get("userId"), "moderation_remove", null, `Removed ${type} #${id}`);
+  return c.json({ ok: true });
+});
+
+adminRoute.get("/api/admin/reports", requireAdmin, async (c) => {
+  const reports = await listOpenReports(c.env);
+  return c.json({
+    reports: reports.map((r) => ({
+      id: r.id,
+      targetType: r.target_type,
+      targetId: r.target_id,
+      targetUserId: r.target_user_id,
+      targetName: r.target_name,
+      reporterName: r.reporter_name,
+      reason: r.reason,
+      details: r.details,
+      content: r.content,
+      createdAt: r.created_at,
+    })),
+  });
+});
+
+adminRoute.post("/api/admin/reports/:id/resolve", requireAdmin, async (c) => {
+  const id = Number(c.req.param("id"));
+  const body = await c.req.json<{ removeContent?: boolean }>().catch(() => null);
+  const removeContent = body?.removeContent === true;
+  const ok = await resolveReport(c.env, id, removeContent);
+  if (!ok) return c.json({ error: "Not found." }, 404);
+  if (removeContent) await logAdminAction(c.env, c.get("userId"), "moderation_remove", null, `Removed content via report #${id}`);
   return c.json({ ok: true });
 });

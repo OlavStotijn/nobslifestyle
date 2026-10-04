@@ -5,7 +5,6 @@ import { useAuth } from "../context/AuthContext";
 import { useProgressPhotos } from "../api/hooks/useProgressPhotos";
 import { useSchemas } from "../api/hooks/useWorkouts";
 import { useCreateWeightLog, useStreaks, useWeightLogs } from "../api/hooks/useProgress";
-import { ThemeToggle } from "../components/ThemeToggle";
 import { ProgressPhotoGrid } from "../components/ProgressPhotoGrid";
 import { LineChart } from "../components/LineChart";
 import { useUnits } from "../lib/useUnits";
@@ -133,10 +132,6 @@ export function ProfilePage() {
 
   return (
     <div className="flex min-h-full flex-col bg-bg px-6 py-8">
-      <div className="flex items-center justify-end">
-        <ThemeToggle />
-      </div>
-
       <div className="mt-4 flex items-center gap-4">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-2 text-2xl font-bold text-ink">
           {user?.displayName?.[0]?.toUpperCase()}

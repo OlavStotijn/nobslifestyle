@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ThemeToggle } from "../components/ThemeToggle";
 import { useAuth } from "../context/AuthContext";
 import { todayLocalDate } from "../api/hooks/useFoodLogs";
 import {
@@ -108,7 +107,6 @@ export function ChecklistPage() {
     <div className="flex min-h-full flex-col bg-bg px-6 py-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-ink">Checklist</h1>
-        <ThemeToggle />
       </div>
 
       {invites && invites.length > 0 && (

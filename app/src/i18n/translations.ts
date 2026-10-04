@@ -143,6 +143,9 @@ const en = {
   "profile.resendEmail": "Resend email",
 
   "settings.title": "Settings",
+  "settings.appearance": "Appearance",
+  "settings.themeLight": "Light",
+  "settings.themeDark": "Dark",
   "settings.opensOnLoad": "Opens on app load",
   "settings.language": "Language",
   "settings.units": "Units",
@@ -301,6 +304,9 @@ const nl: Dictionary = {
   "profile.resendEmail": "E-mail opnieuw versturen",
 
   "settings.title": "Instellingen",
+  "settings.appearance": "Weergave",
+  "settings.themeLight": "Licht",
+  "settings.themeDark": "Donker",
   "settings.opensOnLoad": "Opent bij starten app",
   "settings.language": "Taal",
   "settings.units": "Eenheden",

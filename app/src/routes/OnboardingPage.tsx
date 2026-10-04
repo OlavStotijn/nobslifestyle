@@ -9,7 +9,6 @@ import {
   type Sex,
 } from "../api/hooks/useNutritionProfile";
 import { useAuth } from "../context/AuthContext";
-import { ThemeToggle } from "../components/ThemeToggle";
 
 type Step = "sex" | "birthDate" | "height" | "weight" | "activity" | "goal" | "summary";
 const STEP_ORDER: Step[] = ["sex", "birthDate", "height", "weight", "activity", "goal", "summary"];
@@ -140,7 +139,6 @@ export function OnboardingPage() {
             />
           ))}
         </div>
-        <ThemeToggle />
       </div>
 
       {step === "sex" && (

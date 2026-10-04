@@ -1,4 +1,5 @@
 import type { Env } from "../types";
+import { isBlockedEitherWay, blockedEitherWay } from "./safety";
 
 export interface FriendRow {
   friendship_id: number;
@@ -87,6 +88,8 @@ export async function sendFriendRequest(env: Env, requesterId: number, toUsernam
   const target = await env.DB.prepare("SELECT id FROM users WHERE username = ?").bind(toUsername).first<{ id: number }>();
   if (!target) return { result: "not_found", targetUserId: null };
   if (target.id === requesterId) return { result: "self", targetUserId: null };
+  // Same answer as an unknown username, so a blocked user can't tell they're blocked.
+  if (await isBlockedEitherWay(env, requesterId, target.id)) return { result: "not_found", targetUserId: null };
 
   const existing = await env.DB.prepare(
     `SELECT id, requester_id, status FROM friendships
@@ -144,7 +147,7 @@ export async function removeFriend(env: Env, userId: number, friendshipId: numbe
 
 export async function searchUsersByUsername(env: Env, query: string, excludingUserId: number) {
   const { results } = await env.DB.prepare(
-    "SELECT id, display_name, username, avatar_r2_key FROM users WHERE username LIKE ? COLLATE NOCASE AND id != ? LIMIT 20"
+    `SELECT id, display_name, username, avatar_r2_key FROM users WHERE username LIKE ? COLLATE NOCASE AND id != ? AND NOT ${blockedEitherWay(excludingUserId, "users.id")} LIMIT 20`
   )
     .bind(`%${query}%`, excludingUserId)
     .all<{ id: number; display_name: string; username: string | null; avatar_r2_key: string | null }>();

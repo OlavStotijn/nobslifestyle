@@ -59,7 +59,7 @@ export function TermsOfServicePage() {
           </p>
           <p>
             Don't post content that's illegal, harassing, hateful, or that infringes someone else's rights. We use
-            automated screening plus user reports to catch content that violates these guidelines, and we may remove
+            automated screening plus user reports (use the ⋯ menu on a post or comment to report it or block its author) to catch content that violates these guidelines, and we may remove
             content or suspend accounts that violate them.
           </p>
         </Section>
@@ -70,11 +70,8 @@ export function TermsOfServicePage() {
 
         <Section title="Termination">
           <p>
-            You can delete your account at any time by contacting{" "}
-            <a href="mailto:olavstotijn@gmail.com" className="text-accent">
-              olavstotijn@gmail.com
-            </a>
-            . We may suspend or terminate accounts that violate these Terms.
+            You can delete your account at any time from Settings → Delete account, which permanently removes your
+            data. We may suspend or terminate accounts that violate these Terms.
           </p>
         </Section>
 

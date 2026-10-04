@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useUpdateProfile } from "../api/hooks/useProfile";
+import { useBlockedUsers, useDeleteAccount, useUnblockUser } from "../api/hooks/useSafety";
+import { useTheme } from "../context/ThemeContext";
 import { useTranslation } from "../i18n/I18nContext";
 import { LANGUAGE_LABELS, type LanguageCode } from "../i18n/translations";
 import type { LandingPage } from "../context/AuthContext";
@@ -53,6 +55,13 @@ export function SettingsPage() {
   const { user, setUser } = useAuth();
   const updateProfile = useUpdateProfile();
   const { t, language, setLanguage } = useTranslation();
+  const { theme, setTheme } = useTheme();
+  const { data: blockedUsers } = useBlockedUsers();
+  const unblock = useUnblockUser();
+  const deleteAccount = useDeleteAccount();
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteText, setDeleteText] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [pushError, setPushError] = useState<string | null>(null);
@@ -99,6 +108,16 @@ export function SettingsPage() {
     }
   }
 
+  async function confirmDeleteAccount() {
+    setDeleteError(null);
+    try {
+      await deleteAccount.mutateAsync();
+      setUser(null);
+    } catch {
+      setDeleteError("Couldn't delete your account. Please try again.");
+    }
+  }
+
   function exportCsv(kind: "sessions" | "food-logs") {
     window.location.href = `/api/export/${kind}.csv`;
   }
@@ -110,6 +129,11 @@ export function SettingsPage() {
       </button>
 
       <h1 className="mt-4 text-2xl font-bold text-ink">{t("settings.title")}</h1>
+
+      <SectionCard title={t("settings.appearance")}>
+        <OptionButton selected={theme === "light"} label={t("settings.themeLight")} onClick={() => setTheme("light")} />
+        <OptionButton selected={theme === "dark"} label={t("settings.themeDark")} onClick={() => setTheme("dark")} />
+      </SectionCard>
 
       <SectionCard title={t("settings.opensOnLoad")}>
         {LANDING_OPTIONS.map((opt) => (
@@ -199,6 +223,76 @@ export function SettingsPage() {
         <button type="button" onClick={() => exportCsv("food-logs")} className="rounded-xl border border-border bg-surface px-4 py-3 text-left font-medium text-ink">
           Download food log (CSV)
         </button>
+      </SectionCard>
+
+      <SectionCard title="Blocked users">
+        {blockedUsers?.length === 0 && <p className="text-sm text-ink-muted">You haven't blocked anyone.</p>}
+        {blockedUsers?.map((u) => (
+          <div key={u.id} className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3">
+            <div>
+              <p className="font-medium text-ink">{u.displayName}</p>
+              {u.username && <p className="text-sm text-ink-muted">@{u.username}</p>}
+            </div>
+            <button
+              type="button"
+              onClick={() => unblock.mutate(u.id)}
+              disabled={unblock.isPending}
+              className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-ink disabled:opacity-50"
+            >
+              Unblock
+            </button>
+          </div>
+        ))}
+      </SectionCard>
+
+      <SectionCard title="Delete account">
+        {!confirmingDelete ? (
+          <button
+            type="button"
+            onClick={() => setConfirmingDelete(true)}
+            className="rounded-xl border border-red-500 px-4 py-3 text-left font-medium text-red-500"
+          >
+            Delete my account
+          </button>
+        ) : (
+          <div className="flex flex-col gap-2 rounded-xl border border-red-500 p-4">
+            <p className="text-sm text-ink">
+              This permanently deletes your account and all your data — workouts, food logs, photos, posts and friends. It
+              can't be undone.
+            </p>
+            <label className="text-sm text-ink-muted" htmlFor="delete-confirm">
+              Type DELETE to confirm
+            </label>
+            <input
+              id="delete-confirm"
+              value={deleteText}
+              onChange={(e) => setDeleteText(e.target.value)}
+              autoCapitalize="characters"
+              autoComplete="off"
+              className="rounded-lg border border-border bg-bg px-3 py-2 text-ink outline-none focus:border-red-500"
+            />
+            {deleteError && <p className="text-sm text-red-500">{deleteError}</p>}
+            <button
+              type="button"
+              onClick={confirmDeleteAccount}
+              disabled={deleteText !== "DELETE" || deleteAccount.isPending}
+              className="rounded-xl bg-red-500 px-4 py-3 font-semibold text-white disabled:opacity-50"
+            >
+              {deleteAccount.isPending ? "Deleting…" : "Permanently delete account"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setConfirmingDelete(false);
+                setDeleteText("");
+                setDeleteError(null);
+              }}
+              className="px-4 py-2 text-sm text-ink-muted"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </SectionCard>
     </div>
   );

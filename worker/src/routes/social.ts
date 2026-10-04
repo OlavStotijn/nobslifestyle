@@ -96,7 +96,7 @@ socialRoute.delete("/api/posts/:id/like", async (c) => {
 });
 
 socialRoute.get("/api/posts/:id/comments", async (c) => {
-  const comments = await listComments(c.env, Number(c.req.param("id")));
+  const comments = await listComments(c.env, c.get("userId"), Number(c.req.param("id")));
   return c.json({ comments: comments.map(publicComment) });
 });
 

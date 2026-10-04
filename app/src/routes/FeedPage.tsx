@@ -10,7 +10,8 @@ import {
   type ChecklistFeedPost,
   type StrengthFeedPost,
 } from "../api/hooks/useSocial";
-import { ThemeToggle } from "../components/ThemeToggle";
+import { useAuth } from "../context/AuthContext";
+import { ReportBlockMenu } from "../components/ReportBlockMenu";
 import { SlideCarousel } from "../components/SlideCarousel";
 import { NotificationBell } from "../components/NotificationBell";
 import { formatDuration } from "../lib/geo";
@@ -99,6 +100,7 @@ function StatsSlide({ post }: { post: SessionFeedPost }) {
 function CommentsSection({ postId }: { postId: number }) {
   const { data: comments, isLoading } = useComments(postId, true);
   const addComment = useAddComment(postId);
+  const { user: me } = useAuth();
   const [body, setBody] = useState("");
 
   async function submit() {
@@ -113,9 +115,14 @@ function CommentsSection({ postId }: { postId: number }) {
       {comments && comments.length > 0 && (
         <div className="flex flex-col gap-2">
           {comments.map((c) => (
-            <p key={c.id} className="text-sm text-ink">
-              <span className="font-semibold">{c.user.displayName}</span> <span className="text-ink-muted">{c.body}</span>
-            </p>
+            <div key={c.id} className="flex items-start justify-between gap-2">
+              <p className="text-sm text-ink">
+                <span className="font-semibold">{c.user.displayName}</span> <span className="text-ink-muted">{c.body}</span>
+              </p>
+              {c.user.id !== me?.id && (
+                <ReportBlockMenu targetType="comment" targetId={c.id} authorId={c.user.id} authorName={c.user.displayName} />
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -141,11 +148,17 @@ function CommentsSection({ postId }: { postId: number }) {
 }
 
 function ChecklistSnapshotCard({ post }: { post: ChecklistFeedPost }) {
+  const { user: me } = useAuth();
   return (
     <div className="rounded-2xl border border-border bg-surface p-4">
       <div className="flex items-center justify-between">
         <p className="font-medium text-ink">{post.user.displayName}</p>
-        <p className="text-xs text-ink-muted">{new Date(post.createdAt).toLocaleString()}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-ink-muted">{new Date(post.createdAt).toLocaleString()}</p>
+          {post.user.id !== me?.id && (
+            <ReportBlockMenu targetType="user" targetId={post.user.id} authorId={post.user.id} authorName={post.user.displayName} />
+          )}
+        </div>
       </div>
       <p className="mt-2">
         <span className="text-2xl font-bold text-accent">
@@ -168,6 +181,7 @@ function ChecklistSnapshotCard({ post }: { post: ChecklistFeedPost }) {
 
 function PostCard({ post }: { post: SessionFeedPost }) {
   const toggleLike = useToggleLike();
+  const { user: me } = useAuth();
   const [showComments, setShowComments] = useState(false);
 
   const statsSlide = <StatsSlide post={post} />;
@@ -199,6 +213,11 @@ function PostCard({ post }: { post: SessionFeedPost }) {
         >
           💬 Comments
         </button>
+        {post.user.id !== me?.id && (
+          <div className="ml-auto">
+            <ReportBlockMenu targetType="post" targetId={post.postId} authorId={post.user.id} authorName={post.user.displayName} />
+          </div>
+        )}
       </div>
 
       {showComments && <CommentsSection postId={post.postId} />}
@@ -235,7 +254,6 @@ export function FeedPage() {
               </span>
             )}
           </Link>
-          <ThemeToggle />
         </div>
       </div>
 

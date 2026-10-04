@@ -11,7 +11,6 @@ import {
 } from "../api/hooks/useFoodLogs";
 import { useCardioSessionsForDate, type CardioSession } from "../api/hooks/useCardioSessions";
 import { useNutritionProfile } from "../api/hooks/useNutritionProfile";
-import { ThemeToggle } from "../components/ThemeToggle";
 import { WaterTracker } from "../components/WaterTracker";
 import { FoodThumb } from "../components/FoodThumb";
 import { WeekOverviewWidget } from "../components/WeekOverviewWidget";
@@ -96,10 +95,6 @@ export function FoodPage() {
 
   return (
     <div className="flex min-h-full flex-col bg-bg px-6 py-8">
-      <div className="flex items-center justify-end">
-        <ThemeToggle />
-      </div>
-
       <h1 className="mt-4 text-2xl font-bold text-ink">{t("food.today")}</h1>
 
       <div className="mt-4 rounded-2xl border border-border bg-surface p-6 text-center">
