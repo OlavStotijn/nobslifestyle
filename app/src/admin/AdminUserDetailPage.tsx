@@ -3,8 +3,10 @@ import { useNavigate, useParams, Link } from "react-router-dom";
 import {
   useAdminUser,
   useDeleteUser,
+  useGrantPro,
   useImpersonateUser,
   useReactivateUser,
+  useRemovePro,
   useSuspendUser,
 } from "../api/hooks/useAdmin";
 
@@ -20,6 +22,8 @@ const ACTION_LABEL: Record<string, string> = {
   reactivate_user: "Reactivated",
   delete_user: "Deleted",
   moderation_remove: "Removed content",
+  grant_pro: "Granted Pro",
+  remove_pro: "Removed Pro",
 };
 
 export function AdminUserDetailPage() {
@@ -31,6 +35,8 @@ export function AdminUserDetailPage() {
   const reactivate = useReactivateUser();
   const deleteUser = useDeleteUser();
   const impersonate = useImpersonateUser();
+  const grantPro = useGrantPro();
+  const removePro = useRemovePro();
   const [error, setError] = useState<string | null>(null);
 
   if (isLoading) return <p className="text-ink-muted">Loading…</p>;
@@ -55,6 +61,15 @@ export function AdminUserDetailPage() {
     navigate("/users");
   }
 
+  function handleRemovePro() {
+    if (user.proSource === "mollie") {
+      if (!window.confirm(`${user.displayName} is a paying subscriber. This cancels their real Mollie subscription and revokes Pro immediately. Continue?`)) {
+        return;
+      }
+    }
+    removePro.mutate(userId);
+  }
+
   return (
     <div>
       <button type="button" onClick={() => navigate("/users")} className="text-sm text-ink-muted">
@@ -67,11 +82,18 @@ export function AdminUserDetailPage() {
           <p className="text-ink-muted">{user.email}</p>
           {user.username && <p className="text-sm text-ink-muted">@{user.username}</p>}
         </div>
-        {user.suspendedAt ? (
-          <span className="rounded-full bg-red-500/15 px-3 py-1 text-sm font-medium text-red-500">Suspended</span>
-        ) : (
-          <span className="rounded-full bg-accent-soft px-3 py-1 text-sm font-medium text-accent">Active</span>
-        )}
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          {user.suspendedAt ? (
+            <span className="rounded-full bg-red-500/15 px-3 py-1 text-sm font-medium text-red-500">Suspended</span>
+          ) : (
+            <span className="rounded-full bg-accent-soft px-3 py-1 text-sm font-medium text-accent">Active</span>
+          )}
+          {user.isPro && (
+            <span className="rounded-full bg-accent-soft px-3 py-1 text-sm font-medium text-accent">
+              Pro{user.proSource === "mollie" ? " · paying" : " · comped"}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -110,6 +132,12 @@ export function AdminUserDetailPage() {
           <span className="text-ink-muted">Linked sign-in</span>
           <span className="text-ink">{oauthIdentities.length ? oauthIdentities.map((o) => o.provider).join(", ") : "Password only"}</span>
         </div>
+        <div className="flex justify-between py-1">
+          <span className="text-ink-muted">Plan</span>
+          <span className="text-ink">
+            {user.isPro ? `Pro until ${formatDateTime(user.proUntil)} (${user.proSource === "mollie" ? "paying" : "comped"})` : "Basic"}
+          </span>
+        </div>
       </div>
 
       {error && <p className="mt-3 text-sm text-red-500">{error}</p>}
@@ -140,6 +168,25 @@ export function AdminUserDetailPage() {
             className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-ink disabled:opacity-50"
           >
             Suspend
+          </button>
+        )}
+        {user.isPro ? (
+          <button
+            type="button"
+            onClick={handleRemovePro}
+            disabled={removePro.isPending}
+            className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-ink disabled:opacity-50"
+          >
+            Remove Pro
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => grantPro.mutate({ id: userId, months: 1 })}
+            disabled={grantPro.isPending}
+            className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-ink disabled:opacity-50"
+          >
+            Grant 1 month Pro
           </button>
         )}
         <button

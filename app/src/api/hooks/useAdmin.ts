@@ -7,6 +7,10 @@ export interface AdminMetrics {
   active24h: number;
   active7d: number;
   active30d: number;
+  payingPro: number;
+  compedPro: number;
+  estimatedMrr: number;
+  recentProGrants: { id: number; targetUserId: number | null; targetDisplayName: string | null; createdAt: string }[];
 }
 
 export function useAdminMetrics() {
@@ -32,6 +36,9 @@ export interface AdminUser {
   lastSeenAt: string | null;
   suspendedAt: string | null;
   emailVerified: boolean;
+  isPro: boolean;
+  proUntil: string | null;
+  proSource: "mollie" | "admin" | null;
   usage: AdminUserUsage;
 }
 
@@ -73,6 +80,22 @@ export function useReactivateUser() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: number) => api.post(`/admin/users/${id}/reactivate`),
+    onSuccess: (_data, id) => invalidateAdminUsers(queryClient, id),
+  });
+}
+
+export function useGrantPro() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, months }: { id: number; months?: number }) => api.post(`/admin/users/${id}/grant-pro`, { months: months ?? 1 }),
+    onSuccess: (_data, { id }) => invalidateAdminUsers(queryClient, id),
+  });
+}
+
+export function useRemovePro() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.post(`/admin/users/${id}/remove-pro`),
     onSuccess: (_data, id) => invalidateAdminUsers(queryClient, id),
   });
 }

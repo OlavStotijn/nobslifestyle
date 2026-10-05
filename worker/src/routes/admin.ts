@@ -17,6 +17,8 @@ import {
   logAdminAction,
   reactivateUser,
   removeModeratedPhoto,
+  removeProOverride,
+  setProOverride,
   suspendUser,
 } from "../lib/admin";
 
@@ -33,11 +35,15 @@ function publicAdminUser(u: {
   last_seen_at: string | null;
   suspended_at: string | null;
   email_verified_at: string | null;
+  pro_until: string | null;
+  mollie_customer_id: string | null;
+  mollie_subscription_id: string | null;
   food_log_count: number;
   workout_count: number;
   cardio_count: number;
   checklist_completion_count: number;
 }) {
+  const isPro = u.pro_until !== null && u.pro_until > new Date().toISOString();
   return {
     id: u.id,
     email: u.email,
@@ -47,6 +53,12 @@ function publicAdminUser(u: {
     lastSeenAt: u.last_seen_at,
     suspendedAt: u.suspended_at,
     emailVerified: u.email_verified_at !== null,
+    isPro,
+    proUntil: u.pro_until,
+    // "mollie" = has a live recurring mandate right now; "admin" = in-date
+    // but either never touched Mollie or their subscription was cancelled
+    // (comp, or a cancelled subscriber still in their paid-for grace period).
+    proSource: !isPro ? null : u.mollie_subscription_id !== null ? "mollie" : "admin",
     usage: {
       foodLogs: u.food_log_count,
       workouts: u.workout_count,
@@ -119,6 +131,27 @@ adminRoute.post("/api/admin/users/:id/reactivate", requireAdmin, async (c) => {
   const id = Number(c.req.param("id"));
   await reactivateUser(c.env, id);
   await logAdminAction(c.env, c.get("userId"), "reactivate_user", id);
+  return c.json({ ok: true });
+});
+
+interface GrantProBody {
+  months: number;
+}
+
+adminRoute.post("/api/admin/users/:id/grant-pro", requireAdmin, async (c) => {
+  const id = Number(c.req.param("id"));
+  const body = await c.req.json<Partial<GrantProBody>>().catch(() => null);
+  const months = Number.isInteger(body?.months) && (body!.months as number) > 0 ? (body!.months as number) : 1;
+
+  await setProOverride(c.env, id, months);
+  await logAdminAction(c.env, c.get("userId"), "grant_pro", id, `Granted ${months} month(s) of Pro`);
+  return c.json({ ok: true });
+});
+
+adminRoute.post("/api/admin/users/:id/remove-pro", requireAdmin, async (c) => {
+  const id = Number(c.req.param("id"));
+  await removeProOverride(c.env, id);
+  await logAdminAction(c.env, c.get("userId"), "remove_pro", id);
   return c.json({ ok: true });
 });
 

@@ -40,13 +40,14 @@ export function AdminUsersPage() {
               <th className="px-4 py-2 font-medium">Last seen</th>
               <th className="px-4 py-2 font-medium">Food logs</th>
               <th className="px-4 py-2 font-medium">Workouts</th>
+              <th className="px-4 py-2 font-medium">Plan</th>
               <th className="px-4 py-2 font-medium">Status</th>
             </tr>
           </thead>
           <tbody>
             {isLoading && (
               <tr>
-                <td colSpan={7} className="px-4 py-4 text-center text-ink-muted">
+                <td colSpan={8} className="px-4 py-4 text-center text-ink-muted">
                   Loading…
                 </td>
               </tr>
@@ -63,6 +64,15 @@ export function AdminUsersPage() {
                 <td className="px-4 py-2 text-ink-muted">{formatDate(u.lastSeenAt)}</td>
                 <td className="px-4 py-2 text-ink">{u.usage.foodLogs}</td>
                 <td className="px-4 py-2 text-ink">{u.usage.workouts}</td>
+                <td className="px-4 py-2">
+                  {u.isPro ? (
+                    <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent">
+                      Pro{u.proSource === "mollie" ? "" : " (comp)"}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-ink-muted">Basic</span>
+                  )}
+                </td>
                 <td className="px-4 py-2">
                   {u.suspendedAt ? (
                     <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-500">Suspended</span>

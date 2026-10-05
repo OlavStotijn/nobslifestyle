@@ -1,4 +1,5 @@
 import type { Env } from "../types";
+import { cancelSubscription, PRO_PRICE } from "./billing";
 
 export type AdminAuditAction =
   | "impersonate_start"
@@ -6,7 +7,9 @@ export type AdminAuditAction =
   | "suspend_user"
   | "reactivate_user"
   | "delete_user"
-  | "moderation_remove";
+  | "moderation_remove"
+  | "grant_pro"
+  | "remove_pro";
 
 export async function logAdminAction(
   env: Env,
@@ -26,6 +29,16 @@ export interface AdminMetrics {
   active24h: number;
   active7d: number;
   active30d: number;
+  // Pro counts split by how they got Pro: `payingPro` actually has a live
+  // Mollie mandate (mollie_subscription_id set — cancelled subscribers lose
+  // this immediately even though they keep access until pro_until, which is
+  // what makes this the right denominator for *recurring* revenue);
+  // `compedPro` is everyone else currently in-date (admin grants, and
+  // cancelled-but-still-in-grace-period subscribers).
+  payingPro: number;
+  compedPro: number;
+  estimatedMrr: number;
+  recentProGrants: { id: number; targetUserId: number | null; targetDisplayName: string | null; createdAt: string }[];
 }
 
 // Point-in-time active counts (from users.last_seen_at) rather than a
@@ -34,7 +47,7 @@ export interface AdminMetrics {
 // reliably answerable. Signups-per-day is exact, since users.created_at is
 // a real historical record.
 export async function getAdminMetrics(env: Env): Promise<AdminMetrics> {
-  const [totalRow, signupRows, activeRow] = await Promise.all([
+  const [totalRow, signupRows, activeRow, proRow, recentGrantRows] = await Promise.all([
     env.DB.prepare("SELECT COUNT(*) AS n FROM users").first<{ n: number }>(),
     env.DB.prepare(
       `SELECT substr(created_at, 1, 10) AS day, COUNT(*) AS count
@@ -49,7 +62,22 @@ export async function getAdminMetrics(env: Env): Promise<AdminMetrics> {
          SUM(CASE WHEN last_seen_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 days') THEN 1 ELSE 0 END) AS active30d
        FROM users`
     ).first<{ active24h: number | null; active7d: number | null; active30d: number | null }>(),
+    env.DB.prepare(
+      `SELECT
+         SUM(CASE WHEN pro_until > strftime('%Y-%m-%dT%H:%M:%fZ','now') AND mollie_subscription_id IS NOT NULL THEN 1 ELSE 0 END) AS paying,
+         SUM(CASE WHEN pro_until > strftime('%Y-%m-%dT%H:%M:%fZ','now') AND mollie_subscription_id IS NULL THEN 1 ELSE 0 END) AS comped
+       FROM users`
+    ).first<{ paying: number | null; comped: number | null }>(),
+    env.DB.prepare(
+      `SELECT aal.id, aal.target_user_id, u.display_name AS target_display_name, aal.created_at
+       FROM admin_audit_log aal
+       LEFT JOIN users u ON u.id = aal.target_user_id
+       WHERE aal.action IN ('grant_pro','remove_pro')
+       ORDER BY aal.created_at DESC LIMIT 10`
+    ).all<{ id: number; target_user_id: number | null; target_display_name: string | null; created_at: string }>(),
   ]);
+
+  const payingPro = proRow?.paying ?? 0;
 
   return {
     totalUsers: totalRow?.n ?? 0,
@@ -57,6 +85,15 @@ export async function getAdminMetrics(env: Env): Promise<AdminMetrics> {
     active24h: activeRow?.active24h ?? 0,
     active7d: activeRow?.active7d ?? 0,
     active30d: activeRow?.active30d ?? 0,
+    payingPro,
+    compedPro: proRow?.comped ?? 0,
+    estimatedMrr: Math.round(payingPro * Number(PRO_PRICE.value) * 100) / 100,
+    recentProGrants: recentGrantRows.results.map((r) => ({
+      id: r.id,
+      targetUserId: r.target_user_id,
+      targetDisplayName: r.target_display_name,
+      createdAt: r.created_at,
+    })),
   };
 }
 
@@ -69,6 +106,9 @@ export interface AdminUserRow {
   last_seen_at: string | null;
   suspended_at: string | null;
   email_verified_at: string | null;
+  pro_until: string | null;
+  mollie_customer_id: string | null;
+  mollie_subscription_id: string | null;
   food_log_count: number;
   workout_count: number;
   cardio_count: number;
@@ -78,6 +118,7 @@ export interface AdminUserRow {
 const USER_LIST_SELECT = `
   SELECT
     u.id, u.email, u.display_name, u.username, u.created_at, u.last_seen_at, u.suspended_at, u.email_verified_at,
+    u.pro_until, u.mollie_customer_id, u.mollie_subscription_id,
     (SELECT COUNT(*) FROM food_logs fl WHERE fl.user_id = u.id) AS food_log_count,
     (SELECT COUNT(*) FROM training_sessions ts WHERE ts.user_id = u.id AND ts.finished_at IS NOT NULL) AS workout_count,
     (SELECT COUNT(*) FROM cardio_sessions cs WHERE cs.user_id = u.id) AS cardio_count,
@@ -155,6 +196,31 @@ export async function suspendUser(env: Env, id: number): Promise<void> {
 
 export async function reactivateUser(env: Env, id: number): Promise<void> {
   await env.DB.prepare("UPDATE users SET suspended_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
+    .bind(id)
+    .run();
+}
+
+// Comps Pro for `months` from now (or from their current pro_until if it's
+// already further out than that — same "extend, don't shorten" rule as a
+// real renewal). Doesn't touch mollie_customer_id/mollie_subscription_id,
+// so a comp never looks like a real subscription in the metrics above.
+export async function setProOverride(env: Env, id: number, months: number): Promise<void> {
+  const row = await env.DB.prepare("SELECT pro_until FROM users WHERE id = ?").bind(id).first<{ pro_until: string | null }>();
+  const now = new Date().toISOString();
+  const base = row?.pro_until && row.pro_until > now ? new Date(row.pro_until) : new Date();
+  base.setUTCMonth(base.getUTCMonth() + months);
+  await env.DB.prepare("UPDATE users SET pro_until = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
+    .bind(base.toISOString(), id)
+    .run();
+}
+
+// Revokes Pro immediately (unlike the user's own self-service cancel, which
+// keeps access until the period already paid for ends) — an admin action
+// should actually take effect now. Also cancels any real Mollie subscription
+// so it doesn't just renew pro_until again on the next billing cycle.
+export async function removeProOverride(env: Env, id: number): Promise<void> {
+  await cancelSubscription(env, id);
+  await env.DB.prepare("UPDATE users SET pro_until = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?")
     .bind(id)
     .run();
 }

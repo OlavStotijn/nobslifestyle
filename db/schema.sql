@@ -486,7 +486,7 @@ CREATE TABLE admin_audit_log (
   admin_user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   action           TEXT    NOT NULL CHECK (action IN (
                      'impersonate_start','impersonate_end','suspend_user','reactivate_user',
-                     'delete_user','moderation_remove'
+                     'delete_user','moderation_remove','grant_pro','remove_pro'
                    )),
   target_user_id   INTEGER REFERENCES users(id) ON DELETE SET NULL,
   details          TEXT,
