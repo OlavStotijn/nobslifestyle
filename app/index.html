@@ -18,6 +18,8 @@
       (function () {
         var stored = localStorage.getItem("nobs-theme");
         if (stored !== "light") document.documentElement.classList.add("dark");
+        var accent = localStorage.getItem("nobs-accent");
+        if (accent === "blue" || accent === "purple") document.documentElement.classList.add("accent-" + accent);
       })();
     </script>
   </head>

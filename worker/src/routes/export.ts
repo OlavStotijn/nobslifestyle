@@ -2,6 +2,14 @@ import { Hono } from "hono";
 import type { Env } from "../types";
 import type { AuthVariables } from "../middleware/requireAuth";
 import { requireAuth } from "../middleware/requireAuth";
+import { requirePro } from "../middleware/requirePro";
+import { listWeightLogs } from "../lib/weightLogs";
+import { getVolumeTrend } from "../lib/progress";
+import { getCardioTrend } from "../lib/cardioSessions";
+import { getNutritionTrend } from "../lib/foodLogs";
+import { getNutritionProfile } from "../lib/nutritionProfile";
+import { startOfWeekInTz } from "../lib/time";
+import { buildSummaryPdf, type PdfReportSection } from "../lib/pdfReport";
 
 export const exportRoute = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
 
@@ -77,4 +85,62 @@ exportRoute.get("/api/export/food-logs.csv", async (c) => {
     "fat_g",
   ]);
   return csvResponse(c, "nobslifestyle-food-log.csv", csv);
+});
+
+// Pro-only. A printable text summary, not a pixel copy of the in-app
+// charts — see pdfReport.ts for why.
+exportRoute.get("/api/export/report.pdf", requirePro, async (c) => {
+  const userId = c.get("userId");
+  const profile = await getNutritionProfile(c.env, userId);
+  const timezone = profile?.timezone ?? "Europe/Amsterdam";
+  const currentWeekStart = startOfWeekInTz(new Date(), timezone);
+
+  const [weightLogs, volumeTrend, cardioTrend, nutritionTrend] = await Promise.all([
+    listWeightLogs(c.env, userId, 52),
+    getVolumeTrend(c.env, userId, timezone, 26),
+    getCardioTrend(c.env, userId, timezone, 26),
+    getNutritionTrend(c.env, userId, currentWeekStart, 26),
+  ]);
+
+  const sections: PdfReportSection[] = [
+    {
+      title: "Weight",
+      rows: weightLogs.slice(-20).map((w) => [w.logged_date_local, `${w.weight_kg.toFixed(1)} kg`]),
+    },
+    {
+      title: "Training volume (per week)",
+      rows: volumeTrend.filter((w) => w.volumeKg > 0).map((w) => [w.weekStart, `${Math.round(w.volumeKg)} kg total`]),
+    },
+    {
+      title: "Cardio (per week)",
+      rows: cardioTrend
+        .filter((w) => w.running.distanceM > 0 || w.cycling.distanceM > 0)
+        .map((w) => [
+          w.weekStart,
+          `Running ${(w.running.distanceM / 1000).toFixed(1)}km`,
+          `Cycling ${(w.cycling.distanceM / 1000).toFixed(1)}km`,
+        ]),
+    },
+    {
+      title: "Nutrition (avg/day per week)",
+      rows: nutritionTrend
+        .filter((w) => w.avgCalories > 0)
+        .map((w) => [
+          w.weekStart,
+          `${Math.round(w.avgCalories)} kcal`,
+          `P${Math.round(w.avgProtein)}g`,
+          `C${Math.round(w.avgCarbs)}g`,
+          `F${Math.round(w.avgFat)}g`,
+        ]),
+    },
+  ];
+
+  const pdf = await buildSummaryPdf("NoBSLifestyle — Progress Report", new Date().toLocaleDateString(), sections);
+  return new Response(pdf, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": 'attachment; filename="nobslifestyle-report.pdf"',
+    },
+  });
 });

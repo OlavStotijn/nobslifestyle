@@ -135,6 +135,42 @@ export function useScanLabel() {
   });
 }
 
+export interface GeneratedMeal {
+  mealType: MealType;
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+// Pro-only. Suggestions only — the user adds individual meals to the diary
+// afterward via the existing create-item/create-log mutations below.
+export function useGenerateFoodPlan() {
+  return useMutation({
+    mutationFn: (dietaryPreference?: string) =>
+      api.post<{ meals: GeneratedMeal[] }>("/food/generate-plan", { dietaryPreference }).then((r) => r.meals),
+  });
+}
+
+export interface GeneratedRecipe {
+  title: string;
+  ingredients: string[];
+  steps: string[];
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+// Pro-only.
+export function useGenerateRecipe() {
+  return useMutation({
+    mutationFn: (input: { preference?: string; haveIngredients?: string; maxMinutes?: number }) =>
+      api.post<{ recipe: GeneratedRecipe }>("/food/generate-recipe", input).then((r) => r.recipe),
+  });
+}
+
 export interface MealScanItem {
   name: string;
   estimatedGrams: number;

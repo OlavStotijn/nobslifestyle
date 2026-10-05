@@ -1,6 +1,8 @@
+import { Link } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useNutritionTrend } from "../../api/hooks/useFoodLogs";
 import { useChartTheme } from "../../lib/chartColors";
+import { useAuth } from "../../context/AuthContext";
 
 function formatWeekLabel(dateStr: string): string {
   return new Date(`${dateStr}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -9,7 +11,8 @@ function formatWeekLabel(dateStr: string): string {
 // Calories and macro grams are different scales, so this is deliberately two
 // charts sharing one x-axis rather than a dual-axis chart on one.
 export function NutritionReport() {
-  const { data: trend, isLoading } = useNutritionTrend(8);
+  const { user } = useAuth();
+  const { data: trend, isLoading } = useNutritionTrend(user?.isPro ? 52 : 8);
   const theme = useChartTheme();
 
   if (isLoading) return <p className="mt-6 text-center text-ink-muted">Loading…</p>;
@@ -57,6 +60,12 @@ export function NutritionReport() {
           </ResponsiveContainer>
         </div>
       </div>
+
+      {!user?.isPro && (
+        <Link to="/profile/plan" className="text-center text-sm text-ink-muted">
+          ✨ Pro shows your full history, not just 8 weeks
+        </Link>
+      )}
     </div>
   );
 }

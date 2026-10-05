@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useUpdateProfile } from "../api/hooks/useProfile";
 import { useBlockedUsers, useDeleteAccount, useUnblockUser } from "../api/hooks/useSafety";
@@ -9,6 +9,10 @@ import { LANGUAGE_LABELS, type LanguageCode } from "../i18n/translations";
 import type { LandingPage } from "../context/AuthContext";
 import { isPushSubscribed, subscribeToPush, unsubscribeFromPush } from "../api/hooks/useNotifications";
 import { ApiError } from "../api/client";
+import { exportWeightToHealth, importWeightFromHealth, isHealthSyncAvailable } from "../hooks/useHealthSync";
+import { ICON_OPTIONS, isAppIconSwitchingAvailable, setAppIcon } from "../hooks/useAppIcon";
+import { useWeightLogs } from "../api/hooks/useProgress";
+import { useQueryClient } from "@tanstack/react-query";
 
 const REST_TIMER_OPTIONS = [60, 90, 120, 180];
 
@@ -35,6 +39,107 @@ function SectionCard({ title, children }: { title: string; children: React.React
   );
 }
 
+function AppIconButtons() {
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function pick(name: string | null) {
+    setError(null);
+    setBusy(true);
+    try {
+      await setAppIcon(name);
+    } catch {
+      setError("Not set up yet — this needs real alternate icon artwork added in Xcode first.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => pick(null)}
+          disabled={busy}
+          className="flex-1 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-medium text-ink disabled:opacity-50"
+        >
+          Default
+        </button>
+        {ICON_OPTIONS.map((name) => (
+          <button
+            key={name}
+            type="button"
+            onClick={() => pick(name)}
+            disabled={busy}
+            className="flex-1 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-medium text-ink disabled:opacity-50"
+          >
+            {name}
+          </button>
+        ))}
+      </div>
+      {error && <p className="text-sm text-red-500">{error}</p>}
+    </>
+  );
+}
+
+function HealthSyncButtons() {
+  const { data: logs } = useWeightLogs();
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState<"import" | "export" | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function doImport() {
+    setBusy("import");
+    setMessage(null);
+    try {
+      const existingDates = new Set((logs ?? []).map((l) => l.loggedDate));
+      const count = await importWeightFromHealth(existingDates);
+      queryClient.invalidateQueries({ queryKey: ["weight-logs"] });
+      setMessage(count > 0 ? `Imported ${count} weight entr${count === 1 ? "y" : "ies"} from Health.` : "Nothing new to import.");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Couldn't sync with Apple Health.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function doExport() {
+    setBusy("export");
+    setMessage(null);
+    try {
+      const count = await exportWeightToHealth(logs ?? []);
+      setMessage(count > 0 ? `Sent ${count} weight entr${count === 1 ? "y" : "ies"} to Health.` : "Nothing new to send.");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Couldn't sync with Apple Health.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={doImport}
+        disabled={busy !== null}
+        className="rounded-xl border border-border bg-surface px-4 py-3 text-left font-medium text-ink disabled:opacity-50"
+      >
+        {busy === "import" ? "Importing…" : "Import weight from Health"}
+      </button>
+      <button
+        type="button"
+        onClick={doExport}
+        disabled={busy !== null}
+        className="rounded-xl border border-border bg-surface px-4 py-3 text-left font-medium text-ink disabled:opacity-50"
+      >
+        {busy === "export" ? "Sending…" : "Send my weight log to Health"}
+      </button>
+      {message && <p className="text-sm text-ink-muted">{message}</p>}
+    </>
+  );
+}
+
 function OptionButton({ selected, label, onClick, disabled }: { selected: boolean; label: string; onClick: () => void; disabled?: boolean }) {
   return (
     <button
@@ -56,7 +161,7 @@ export function SettingsPage() {
   const { user, setUser } = useAuth();
   const updateProfile = useUpdateProfile();
   const { t, language, setLanguage } = useTranslation();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, accentColor, setAccentColor } = useTheme();
   const { data: blockedUsers } = useBlockedUsers();
   const unblock = useUnblockUser();
   const deleteAccount = useDeleteAccount();
@@ -135,6 +240,20 @@ export function SettingsPage() {
       <SectionCard title={t("settings.appearance")}>
         <OptionButton selected={theme === "light"} label={t("settings.themeLight")} onClick={() => setTheme("light")} />
         <OptionButton selected={theme === "dark"} label={t("settings.themeDark")} onClick={() => setTheme("dark")} />
+      </SectionCard>
+
+      <SectionCard title="Accent color">
+        <OptionButton selected={accentColor === "green"} label="Green (default)" onClick={() => setAccentColor("green")} />
+        {user?.isPro ? (
+          <>
+            <OptionButton selected={accentColor === "blue"} label="Blue" onClick={() => setAccentColor("blue")} />
+            <OptionButton selected={accentColor === "purple"} label="Purple" onClick={() => setAccentColor("purple")} />
+          </>
+        ) : (
+          <Link to="/profile/plan" className="rounded-xl border border-border bg-surface px-4 py-3 text-left text-ink-muted">
+            ✨ Blue &amp; Purple — Pro feature
+          </Link>
+        )}
       </SectionCard>
 
       <SectionCard title={t("settings.opensOnLoad")}>
@@ -218,6 +337,30 @@ export function SettingsPage() {
         {pushError && <p className="text-sm text-red-500">{pushError}</p>}
       </SectionCard>
 
+      {isHealthSyncAvailable() && (
+        <SectionCard title="Apple Health">
+          {user?.isPro ? (
+            <HealthSyncButtons />
+          ) : (
+            <Link to="/profile/plan" className="rounded-xl border border-border bg-surface px-4 py-3 text-left text-ink-muted">
+              ✨ Sync weight with Apple Health — Pro feature
+            </Link>
+          )}
+        </SectionCard>
+      )}
+
+      {isAppIconSwitchingAvailable() && (
+        <SectionCard title="App icon">
+          {user?.isPro ? (
+            <AppIconButtons />
+          ) : (
+            <Link to="/profile/plan" className="rounded-xl border border-border bg-surface px-4 py-3 text-left text-ink-muted">
+              ✨ Alternate app icons — Pro feature
+            </Link>
+          )}
+        </SectionCard>
+      )}
+
       <SectionCard title="Export your data">
         <button type="button" onClick={() => exportCsv("sessions")} className="rounded-xl border border-border bg-surface px-4 py-3 text-left font-medium text-ink">
           Download workout history (CSV)
@@ -225,6 +368,19 @@ export function SettingsPage() {
         <button type="button" onClick={() => exportCsv("food-logs")} className="rounded-xl border border-border bg-surface px-4 py-3 text-left font-medium text-ink">
           Download food log (CSV)
         </button>
+        {user?.isPro ? (
+          <button
+            type="button"
+            onClick={() => (window.location.href = "/api/export/report.pdf")}
+            className="rounded-xl border border-border bg-surface px-4 py-3 text-left font-medium text-ink"
+          >
+            Download progress report (PDF)
+          </button>
+        ) : (
+          <Link to="/profile/plan" className="rounded-xl border border-border bg-surface px-4 py-3 text-left font-medium text-ink-muted">
+            ✨ Progress report (PDF) — Pro feature
+          </Link>
+        )}
       </SectionCard>
 
       <SectionCard title="Blocked users">

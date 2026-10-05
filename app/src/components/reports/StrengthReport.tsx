@@ -2,13 +2,15 @@ import { Link } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useVolumeTrend, usePersonalRecords } from "../../api/hooks/useProgress";
 import { useChartTheme } from "../../lib/chartColors";
+import { useAuth } from "../../context/AuthContext";
 
 function formatWeekLabel(dateStr: string): string {
   return new Date(`${dateStr}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 export function StrengthReport() {
-  const { data: trend, isLoading } = useVolumeTrend(12);
+  const { user } = useAuth();
+  const { data: trend, isLoading } = useVolumeTrend(user?.isPro ? 52 : 12);
   const { data: records } = usePersonalRecords();
   const theme = useChartTheme();
 
@@ -51,6 +53,12 @@ export function StrengthReport() {
           </Link>
         </div>
       </div>
+
+      {!user?.isPro && (
+        <Link to="/profile/plan" className="text-center text-sm text-ink-muted">
+          ✨ Pro shows your full history, not just 12 weeks
+        </Link>
+      )}
     </div>
   );
 }

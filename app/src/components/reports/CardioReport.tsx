@@ -1,6 +1,8 @@
+import { Link } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useCardioTrend } from "../../api/hooks/useCardioSessions";
 import { useChartTheme } from "../../lib/chartColors";
+import { useAuth } from "../../context/AuthContext";
 
 function formatWeekLabel(dateStr: string): string {
   return new Date(`${dateStr}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -10,7 +12,8 @@ function formatWeekLabel(dateStr: string): string {
 // the nutrition report — this is two charts on a shared x-axis, not one
 // dual-axis chart.
 export function CardioReport() {
-  const { data: trend, isLoading } = useCardioTrend(12);
+  const { user } = useAuth();
+  const { data: trend, isLoading } = useCardioTrend(user?.isPro ? 52 : 12);
   const theme = useChartTheme();
 
   const data = trend?.map((w) => ({
@@ -67,6 +70,12 @@ export function CardioReport() {
           </ResponsiveContainer>
         </div>
       </div>
+
+      {!user?.isPro && (
+        <Link to="/profile/plan" className="text-center text-sm text-ink-muted">
+          ✨ Pro shows your full history, not just 12 weeks
+        </Link>
+      )}
     </div>
   );
 }

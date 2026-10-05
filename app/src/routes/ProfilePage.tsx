@@ -197,6 +197,10 @@ export function ProfilePage() {
           <span className="font-medium text-ink">Plan</span>
           <span className="text-ink-muted">{user?.isPro ? "Pro →" : "Basic →"}</span>
         </Link>
+        <Link to="/profile/measurements" className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-4">
+          <span className="font-medium text-ink">Measurements</span>
+          <span className="text-ink-muted">→</span>
+        </Link>
         <Link
           to="/profile/settings"
           className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-4"

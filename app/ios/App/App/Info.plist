@@ -28,6 +28,10 @@
 	<string>NoBSLifestyle uses your camera to scan food barcodes and nutrition labels, and to add photos to your posts and meals.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>NoBSLifestyle uses your location to track distance, pace, and route during outdoor runs and rides.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>NoBSLifestyle reads your weight and workout data from Apple Health to keep your logs in sync.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>NoBSLifestyle writes weight and workout entries you log in the app to Apple Health.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

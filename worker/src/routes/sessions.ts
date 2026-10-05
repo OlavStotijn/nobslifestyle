@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Env } from "../types";
 import type { AuthVariables } from "../middleware/requireAuth";
 import { requireAuth } from "../middleware/requireAuth";
+import { maxTrendWeeks } from "../lib/proStatus";
 import {
   addSessionSet,
   applySessionExerciseWeight,
@@ -181,7 +182,7 @@ sessionsRoute.get("/api/progress/exercise/:exerciseId/history", async (c) => {
 
 sessionsRoute.get("/api/progress/volume", async (c) => {
   const userId = c.get("userId");
-  const weeks = Math.min(52, Math.max(1, Number(c.req.query("weeks")) || 12));
+  const weeks = Math.min(await maxTrendWeeks(c.env, userId, 12), Math.max(1, Number(c.req.query("weeks")) || 12));
   const profile = await getNutritionProfile(c.env, userId);
   const trend = await getVolumeTrend(c.env, userId, profile?.timezone ?? "Europe/Amsterdam", weeks);
   return c.json({ trend });

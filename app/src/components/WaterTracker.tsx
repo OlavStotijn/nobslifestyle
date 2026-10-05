@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useAuth } from "../context/AuthContext";
 import {
   useCreateWaterLog,
   useDeleteWaterLog,
@@ -36,8 +38,19 @@ function GearIcon() {
 function WaterSettingsSheet({ onClose }: { onClose: () => void }) {
   const { data: settings } = useWaterSettings();
   const update = useUpdateWaterSettings();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   if (!settings) return null;
+
+  function selectInterval(min: number) {
+    if (min < 60 && !user?.isPro) {
+      onClose();
+      navigate("/profile/plan");
+      return;
+    }
+    update.mutate({ reminderIntervalMinutes: min });
+  }
 
   return (
     <BottomSheet open onClose={onClose}>
@@ -101,15 +114,16 @@ function WaterSettingsSheet({ onClose }: { onClose: () => void }) {
                 <button
                   key={min}
                   type="button"
-                  onClick={() => update.mutate({ reminderIntervalMinutes: min })}
+                  onClick={() => selectInterval(min)}
                   className={`rounded-lg border px-2 py-2 text-sm font-semibold transition-colors ${
                     settings.reminderIntervalMinutes === min ? "border-accent bg-accent-soft text-accent" : "border-border bg-bg text-ink"
                   }`}
                 >
-                  {min}m
+                  {min < 60 && !user?.isPro ? "✨" : `${min}m`}
                 </button>
               ))}
             </div>
+            {!user?.isPro && <p className="mt-1 text-xs text-ink-muted">✨ Pro unlocks more frequent reminders</p>}
           </div>
 
           <div className="flex gap-3">

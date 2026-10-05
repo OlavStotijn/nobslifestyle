@@ -78,6 +78,17 @@ export function useCreateSchema() {
   });
 }
 
+// Pro-only. Returns the new schema's id — the UI navigates straight into
+// the normal editor so the user reviews/tweaks the AI's picks before using it.
+export function useGenerateWorkout() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { goal: string; experience: "beginner" | "intermediate" | "advanced"; equipment: string; focus?: string }) =>
+      api.post<{ schemaId: number }>("/ai/workouts/generate", input).then((r) => r.schemaId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["schemas"] }),
+  });
+}
+
 export function useUpdateSchemaVisibility(schemaId: number) {
   const queryClient = useQueryClient();
   return useMutation({

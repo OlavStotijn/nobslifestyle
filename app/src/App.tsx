@@ -9,6 +9,7 @@ import { RootPage } from "./routes/RootPage";
 import { OnboardingPage } from "./routes/OnboardingPage";
 import { FoodPage } from "./routes/FoodPage";
 import { AddFoodPage } from "./routes/AddFoodPage";
+import { AiFoodIdeasPage } from "./routes/AiFoodIdeasPage";
 import { FoodWeekPage } from "./routes/FoodWeekPage";
 import { MealBuilderPage } from "./routes/MealBuilderPage";
 import { WorkoutsPage } from "./routes/WorkoutsPage";
@@ -24,6 +25,7 @@ import { FeedPage } from "./routes/FeedPage";
 import { ProfilePage } from "./routes/ProfilePage";
 import { SettingsPage } from "./routes/SettingsPage";
 import { PlanPage } from "./routes/PlanPage";
+import { MeasurementsPage } from "./routes/MeasurementsPage";
 import { UpgradePage } from "./routes/UpgradePage";
 import { UpgradeCompletePage } from "./routes/UpgradeCompletePage";
 import { AddProgressPhotoPage } from "./routes/AddProgressPhotoPage";
@@ -62,6 +64,7 @@ export default function App() {
           <Route path="/verify-email-required" element={<VerifyEmailRequiredPage />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
           <Route path="/food/add" element={<AddFoodPage />} />
+          <Route path="/food/ai" element={<AiFoodIdeasPage />} />
           <Route path="/food/week" element={<FoodWeekPage />} />
           <Route path="/food/meals/new" element={<MealBuilderPage />} />
           <Route path="/workouts/new" element={<NewSchemaPage />} />
@@ -74,6 +77,7 @@ export default function App() {
           <Route path="/friends/:id" element={<FriendProfilePage />} />
           <Route path="/profile/settings" element={<SettingsPage />} />
           <Route path="/profile/plan" element={<PlanPage />} />
+          <Route path="/profile/measurements" element={<MeasurementsPage />} />
           <Route path="/profile/progress-photos/add" element={<AddProgressPhotoPage />} />
           <Route path="/progress/prs" element={<PersonalRecordsPage />} />
           <Route path="/programs" element={<ProgramsPage />} />

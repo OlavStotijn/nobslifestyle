@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { updateWidgetStats } from "../lib/widgetBridge";
 import {
   useCreateSavedMeal,
   useDailySummary,
@@ -81,6 +83,12 @@ export function FoodPage() {
   const target = baseTarget + burned;
   const remaining = Math.max(0, target - consumed);
 
+  // No-op until the NobsWidget extension + App Group are set up in Xcode —
+  // see ios/NobsWidget/ and WidgetBridgePlugin.swift.
+  useEffect(() => {
+    if (target > 0) updateWidgetStats({ caloriesRemaining: remaining, caloriesConsumed: consumed, caloriesTarget: target });
+  }, [remaining, consumed, target]);
+
   const MEAL_ORDER: { key: MealType; label: string }[] = [
     { key: "breakfast", label: t("food.breakfast") },
     { key: "lunch", label: t("food.lunch") },
@@ -95,7 +103,12 @@ export function FoodPage() {
 
   return (
     <div className="flex min-h-full flex-col bg-bg px-6 py-8">
-      <h1 className="mt-4 text-2xl font-bold text-ink">{t("food.today")}</h1>
+      <div className="mt-4 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-ink">{t("food.today")}</h1>
+        <button type="button" onClick={() => navigate("/food/ai")} className="text-sm font-medium text-accent">
+          ✨ AI ideas
+        </button>
+      </div>
 
       <div className="mt-4 rounded-2xl border border-border bg-surface p-6 text-center">
         <p className="text-4xl font-bold text-accent">{remaining}</p>

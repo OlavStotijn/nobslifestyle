@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Env } from "../types";
 import type { AuthVariables } from "../middleware/requireAuth";
 import { requireAuth } from "../middleware/requireAuth";
+import { isUserPro } from "../lib/proStatus";
 import {
   createWaterLog,
   deleteWaterLog,
@@ -44,8 +45,16 @@ waterRoute.put("/api/water/settings", async (c) => {
   if (body.goalMl != null && (typeof body.goalMl !== "number" || body.goalMl <= 0)) {
     return c.json({ error: "goalMl must be a positive number." }, 422);
   }
-  if (body.reminderIntervalMinutes != null && (typeof body.reminderIntervalMinutes !== "number" || body.reminderIntervalMinutes < 5)) {
-    return c.json({ error: "reminderIntervalMinutes must be at least 5." }, 422);
+  if (body.reminderIntervalMinutes != null) {
+    if (typeof body.reminderIntervalMinutes !== "number" || body.reminderIntervalMinutes < 5) {
+      return c.json({ error: "reminderIntervalMinutes must be at least 5." }, 422);
+    }
+    // Basic is capped at hourly reminders; Pro can go as frequent as every
+    // 5 minutes.
+    const minInterval = (await isUserPro(c.env, c.get("userId"))) ? 5 : 60;
+    if (body.reminderIntervalMinutes < minInterval) {
+      return c.json({ error: `Reminders more frequent than every ${minInterval} minutes require Pro.` }, 422);
+    }
   }
   if (body.reminderStartTime != null && !TIME_PATTERN.test(body.reminderStartTime)) {
     return c.json({ error: "reminderStartTime must be HH:MM." }, 422);

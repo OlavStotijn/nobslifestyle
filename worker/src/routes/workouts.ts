@@ -22,11 +22,15 @@ import {
   type SchemaVisibility,
 } from "../lib/schemas";
 import { areFriends } from "../lib/friendships";
+import { generateWorkout } from "../lib/workoutGen";
+import { requirePro } from "../middleware/requirePro";
+import { tooManyAttempts, hit } from "../lib/rateLimit";
 
 export const workoutsRoute = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
 
 workoutsRoute.use("/api/exercises*", requireAuth);
 workoutsRoute.use("/api/schemas*", requireAuth);
+workoutsRoute.use("/api/ai/workouts/*", requireAuth);
 
 workoutsRoute.get("/api/exercises", async (c) => {
   const exercises = await listExercises(c.env, c.get("userId"), {
@@ -125,6 +129,45 @@ workoutsRoute.post("/api/schemas", async (c) => {
 
   const schema = await createSchema(c.env, c.get("userId"), { name: body.name, description: body.description });
   return c.json({ schema: await schemaWithExercises(c.env, c.get("userId"), schema.id) }, 201);
+});
+
+interface GenerateWorkoutBody {
+  goal: string;
+  experience: "beginner" | "intermediate" | "advanced";
+  equipment: string;
+  focus?: string;
+}
+
+const GENERATE_WORKOUT_DAILY_LIMIT = 10;
+const VALID_EXPERIENCE = ["beginner", "intermediate", "advanced"];
+
+// Pro-only. Produces a real schema the user lands in the normal editor to
+// review/tweak — same "AI suggests, existing UI confirms" shape as the
+// nutrition-label OCR and meal scan features.
+workoutsRoute.post("/api/ai/workouts/generate", requirePro, async (c) => {
+  const userId = c.get("userId");
+  if (await tooManyAttempts(c.env, "ai-generate", String(userId), GENERATE_WORKOUT_DAILY_LIMIT)) {
+    return c.json({ error: "You've reached today's limit for AI generations. Try again tomorrow." }, 429);
+  }
+
+  const body = await c.req.json<Partial<GenerateWorkoutBody>>().catch(() => null);
+  if (!body?.goal?.trim() || !body?.equipment?.trim() || !VALID_EXPERIENCE.includes(body.experience ?? "")) {
+    return c.json({ error: "goal, experience, and equipment are required." }, 422);
+  }
+
+  try {
+    const { schemaId } = await generateWorkout(c.env, userId, {
+      goal: body.goal.trim().slice(0, 100),
+      experience: body.experience as "beginner" | "intermediate" | "advanced",
+      equipment: body.equipment.trim().slice(0, 200),
+      focus: body.focus?.trim().slice(0, 100),
+    });
+    await hit(c.env, "ai-generate", String(userId), 24 * 60 * 60 * 1000);
+    return c.json({ schemaId });
+  } catch (err) {
+    console.error("Workout generation failed", err);
+    return c.json({ error: "Couldn't generate a workout. Please try again." }, 502);
+  }
 });
 
 workoutsRoute.get("/api/schemas/:id", async (c) => {

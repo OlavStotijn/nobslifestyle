@@ -34,6 +34,29 @@
   --color-accent-soft: #1a2e10;
 }
 
+/* Pro cosmetic perk: alternate accent colorways — same bg/surface/text,
+   just a different --color-accent* set. See ThemeContext.tsx. */
+:root.accent-blue {
+  --color-accent: #1d6fd6;
+  --color-accent-strong: #15589f;
+  --color-accent-soft: #e3eefc;
+}
+:root.dark.accent-blue {
+  --color-accent: #4da3ff;
+  --color-accent-strong: #7cc0ff;
+  --color-accent-soft: #0f2847;
+}
+:root.accent-purple {
+  --color-accent: #8639d6;
+  --color-accent-strong: #6c2bab;
+  --color-accent-soft: #f1e6fb;
+}
+:root.dark.accent-purple {
+  --color-accent: #b586f0;
+  --color-accent-strong: #c9a4f5;
+  --color-accent-soft: #2a1740;
+}
+
 html,
 body,
 #root {

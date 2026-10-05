@@ -27,8 +27,11 @@ import { localDateInTz, startOfWeekInTz, type MealType } from "../lib/time";
 import { autoCompleteLinkedChecklistItems } from "../lib/checklist";
 import { extractNutritionFromLabel } from "../lib/ocr";
 import { scanMealPhoto } from "../lib/mealScan";
+import { generateFoodPlan } from "../lib/foodPlanGen";
+import { generateRecipe } from "../lib/recipeGen";
 import { isImageAppropriate } from "../lib/contentModeration";
 import { requirePro } from "../middleware/requirePro";
+import { maxTrendWeeks } from "../lib/proStatus";
 import { tooManyAttempts, hit } from "../lib/rateLimit";
 import { getBurnedKcalForDate } from "../lib/cardioSessions";
 import {
@@ -139,6 +142,64 @@ foodRoute.post("/api/food/scan-meal", requirePro, async (c) => {
   return c.json({ items });
 });
 
+interface GenerateFoodPlanBody {
+  dietaryPreference?: string;
+}
+
+const AI_GENERATE_DAILY_LIMIT = 10;
+
+// Pro-only. Suggestions only — nothing is persisted here, same "AI
+// suggests, user confirms via the existing create-item/create-log
+// endpoints" shape as the OCR and meal-scan features above.
+foodRoute.post("/api/food/generate-plan", requirePro, async (c) => {
+  const userId = c.get("userId");
+  if (await tooManyAttempts(c.env, "ai-generate", String(userId), AI_GENERATE_DAILY_LIMIT)) {
+    return c.json({ error: "You've reached today's limit for AI generations. Try again tomorrow." }, 429);
+  }
+
+  const body = await c.req.json<Partial<GenerateFoodPlanBody>>().catch(() => null);
+
+  try {
+    const meals = await generateFoodPlan(c.env, userId, body?.dietaryPreference?.trim().slice(0, 100) || undefined);
+    await hit(c.env, "ai-generate", String(userId), 24 * 60 * 60 * 1000);
+    return c.json({ meals });
+  } catch (err) {
+    console.error("Food plan generation failed", err);
+    return c.json({ error: "Couldn't generate a plan. Please try again." }, 502);
+  }
+});
+
+interface GenerateRecipeBody {
+  preference?: string;
+  haveIngredients?: string;
+  maxMinutes?: number;
+}
+
+// Pro-only. Pure display — logging it is a single "add as one meal" action
+// using the AI's totals, not decomposed per-ingredient (keeps this simple;
+// it's a dinner suggestion, not a structured recipe-builder).
+foodRoute.post("/api/food/generate-recipe", requirePro, async (c) => {
+  const userId = c.get("userId");
+  if (await tooManyAttempts(c.env, "ai-generate", String(userId), AI_GENERATE_DAILY_LIMIT)) {
+    return c.json({ error: "You've reached today's limit for AI generations. Try again tomorrow." }, 429);
+  }
+
+  const body = await c.req.json<Partial<GenerateRecipeBody>>().catch(() => null);
+
+  try {
+    const recipe = await generateRecipe(c.env, {
+      preference: body?.preference?.trim().slice(0, 150),
+      haveIngredients: body?.haveIngredients?.trim().slice(0, 300),
+      maxMinutes: Number.isInteger(body?.maxMinutes) ? (body!.maxMinutes as number) : undefined,
+    });
+    await hit(c.env, "ai-generate", String(userId), 24 * 60 * 60 * 1000);
+    return c.json({ recipe });
+  } catch (err) {
+    console.error("Recipe generation failed", err);
+    return c.json({ error: "Couldn't generate a recipe. Please try again." }, 502);
+  }
+});
+
 const MAX_FOOD_IMAGE_BYTES = 8 * 1024 * 1024;
 
 // Plain "upload a photo, get back an R2 key" endpoint — separate from
@@ -245,7 +306,7 @@ foodRoute.get("/api/food/logs/week", async (c) => {
 
 foodRoute.get("/api/food/reports/nutrition", async (c) => {
   const userId = c.get("userId");
-  const weeks = Math.min(52, Math.max(1, Number(c.req.query("weeks")) || 8));
+  const weeks = Math.min(await maxTrendWeeks(c.env, userId, 8), Math.max(1, Number(c.req.query("weeks")) || 8));
   const profile = await getNutritionProfile(c.env, userId);
   const currentWeekStart = startOfWeekInTz(new Date(), profile?.timezone ?? "Europe/Amsterdam");
   const trend = await getNutritionTrend(c.env, userId, currentWeekStart, weeks);
