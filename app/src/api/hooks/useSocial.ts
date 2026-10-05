@@ -94,6 +94,17 @@ export function useSendFriendRequest() {
   });
 }
 
+export function useRemoveFriend() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (friendshipId: number) => api.delete(`/friends/${friendshipId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["friends"] });
+      queryClient.invalidateQueries({ queryKey: ["feed"] });
+    },
+  });
+}
+
 export function useRespondToFriendRequest() {
   const queryClient = useQueryClient();
   return useMutation({

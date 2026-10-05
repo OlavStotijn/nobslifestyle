@@ -44,6 +44,10 @@ body {
   overscroll-behavior-y: none;
   background-color: var(--color-bg);
   color: var(--color-text);
+  /* viewport-fit=cover (index.html) lets content draw under the status
+     bar/notch/Dynamic Island, which native page headers need to actively
+     avoid — applied once here instead of per-page. */
+  padding-top: env(safe-area-inset-top);
 }
 
 /* Smooth light/dark transition: every element that reads a themed CSS
