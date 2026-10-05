@@ -13,6 +13,13 @@ export default defineConfig({
       srcDir: "src",
       filename: "sw.ts",
       registerType: "autoUpdate",
+      // The native Capacitor shell ships every asset locally in the IPA, so
+      // the service worker buys it nothing — and WKWebView's storage
+      // survives Xcode rebuilds, so a stale worker from a previous build can
+      // serve an index.html pointing at JS chunks the new build deleted,
+      // producing a blank screen. Registered manually in main.tsx instead,
+      // gated to skip native.
+      injectRegister: false,
       includeAssets: ["icons/favicon.svg"],
       manifest: {
         name: "NoBSLifestyle",

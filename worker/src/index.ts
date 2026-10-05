@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import type { Env } from "./types";
 import type { AuthVariables } from "./middleware/requireAuth";
 import { authRoute } from "./routes/auth";
@@ -40,6 +41,20 @@ app.use("*", async (c, next) => {
   }
   await next();
 });
+
+// The native iOS/Android shells bundle the SPA locally (see
+// app/capacitor.config.ts — no `server.hostname`), so WKWebView/Chromium
+// requests to /api/* come from the app's own local origin, not
+// nobslifestyle.com, and need an explicit CORS allowlist + credentialed
+// cookies to reach this Worker at all.
+const NATIVE_APP_ORIGINS = ["capacitor://localhost", "http://localhost", "https://localhost"];
+app.use(
+  "/api/*",
+  cors({
+    origin: (origin) => (origin && NATIVE_APP_ORIGINS.includes(origin) ? origin : undefined),
+    credentials: true,
+  })
+);
 
 app.get("/api/__health", (c) => c.text("ok"));
 

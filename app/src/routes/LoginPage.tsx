@@ -2,7 +2,6 @@ import { useState, type FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { api, ApiError } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import { ThemeToggle } from "../components/ThemeToggle";
 import { OAuthButtons } from "../components/OAuthButtons";
 import { useTranslation } from "../i18n/I18nContext";
 
@@ -39,10 +38,6 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-full flex-col bg-bg px-6 py-8">
-      <div className="flex justify-end">
-        <ThemeToggle />
-      </div>
-
       <div className="flex flex-1 flex-col justify-center">
         <h1 className="text-3xl font-bold text-ink">{t("auth.welcomeBack")}</h1>
         <p className="mt-2 text-ink-muted">{t("auth.loginSubtitle")}</p>

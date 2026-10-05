@@ -2,10 +2,19 @@ import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
+import { Capacitor } from "@capacitor/core";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { I18nProvider } from "./i18n/I18nContext";
 import "./index.css";
+
+// Web only — the native app ships its assets locally and has nothing to
+// gain from a service worker, while WKWebView's storage persisting across
+// Xcode rebuilds means a stale worker can serve an index.html pointing at JS
+// chunks a newer build has already deleted, producing a blank screen.
+if (!Capacitor.isNativePlatform() && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js", { scope: "/" }));
+}
 
 // Both lazy: same SPA bundle ships to nobslifestyle.com and
 // admin.nobslifestyle.com (one Worker, one deploy — see wrangler.jsonc's

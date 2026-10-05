@@ -5,8 +5,9 @@ const STORAGE_KEY = "nobs-theme";
 
 function getInitialTheme(): Theme {
   const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === "light" || stored === "dark") return stored;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  // Dark by default regardless of OS preference — only an explicit choice
+  // (stored below once the user picks one) overrides it.
+  return stored === "light" ? "light" : "dark";
 }
 
 interface ThemeContextValue {
@@ -29,15 +30,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const meta = document.getElementById("theme-color-meta");
     if (meta) meta.setAttribute("content", theme === "dark" ? "#0f0f0f" : "#f8f8f8");
   }, [theme]);
-
-  // Follow the OS setting live until the user picks explicitly.
-  useEffect(() => {
-    if (localStorage.getItem(STORAGE_KEY)) return;
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = (e: MediaQueryListEvent) => setThemeState(e.matches ? "dark" : "light");
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
 
   function setTheme(next: Theme) {
     setThemeState(next);

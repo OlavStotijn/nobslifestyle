@@ -1,6 +1,7 @@
 import { Navigate } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { useAuth } from "../context/AuthContext";
+import { SplashScreen } from "../components/SplashScreen";
 import { LandingPage } from "./LandingPage";
 import { RootRedirectPage } from "./RootRedirectPage";
 
@@ -15,14 +16,17 @@ import { RootRedirectPage } from "./RootRedirectPage";
 export function RootPage() {
   const { user, loading } = useAuth();
 
-  if (loading) {
-    return <div className="flex min-h-full items-center justify-center bg-bg text-ink-muted">Loading…</div>;
-  }
-
-  if (!user) {
-    if (Capacitor.isNativePlatform()) return <Navigate to="/login" replace />;
-    return <LandingPage />;
-  }
-
-  return <RootRedirectPage />;
+  return (
+    <SplashScreen ready={!loading}>
+      {!user ? (
+        Capacitor.isNativePlatform() ? (
+          <Navigate to="/login" replace />
+        ) : (
+          <LandingPage />
+        )
+      ) : (
+        <RootRedirectPage />
+      )}
+    </SplashScreen>
+  );
 }

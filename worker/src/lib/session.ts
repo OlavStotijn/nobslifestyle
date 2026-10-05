@@ -58,7 +58,14 @@ function buildCookie(env: Env, nameValue: string, maxAgeSeconds: number): string
       // malformed APP_URL — fall back to a host-only cookie rather than fail the request
     }
   }
-  parts.push("SameSite=Lax");
+  // Lax in dev (no Secure there, and SameSite=None requires Secure). In
+  // production this must be None: the native iOS/Android shells fetch the
+  // API from their own local origin (capacitor://localhost, not
+  // nobslifestyle.com — see the CORS allowlist in worker/src/index.ts), which
+  // makes every request cross-site, and Lax cookies are never sent cross-site
+  // on fetch/XHR. CORS still restricts which origins can get a credentialed
+  // response, so this doesn't open the cookie up to arbitrary sites.
+  parts.push(env.ENVIRONMENT === "development" ? "SameSite=Lax" : "SameSite=None");
   return parts.join("; ");
 }
 

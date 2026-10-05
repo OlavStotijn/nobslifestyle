@@ -1,3 +1,5 @@
+import { Capacitor } from "@capacitor/core";
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -6,9 +8,17 @@ export class ApiError extends Error {
   }
 }
 
+// The native shells bundle the SPA locally (no capacitor.config.ts
+// server.hostname), so a relative "/api/..." resolves against the app's own
+// local origin — Capacitor's router serves index.html for any extensionless
+// path (see @capacitor/ios's Router.swift), which made every API call
+// silently "succeed" with the HTML shell instead of a real response. Native
+// builds need the absolute production origin instead.
+const API_BASE = Capacitor.isNativePlatform() ? "https://nobslifestyle.com/api" : "/api";
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const isFormData = init?.body instanceof FormData;
-  const res = await fetch(`/api${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     credentials: "include",
     headers: {
