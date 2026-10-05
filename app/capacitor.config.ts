@@ -5,6 +5,19 @@ const config: CapacitorConfig = {
   appName: 'NoBSLifestyle',
   webDir: 'dist',
   plugins: {
+    // The app talks to the real API at https://nobslifestyle.com from a
+    // native shell whose own origin is capacitor://localhost — a genuinely
+    // cross-site relationship, which WebKit's ITP blocks third-party cookies
+    // for regardless of CORS/SameSite config. Routing fetch()/XHR through
+    // native URLSession instead of WKWebView's own networking sidesteps ITP
+    // entirely (it's a WebKit/browser-engine restriction, not an OS one),
+    // which is what actually lets the session cookie persist after login.
+    CapacitorHttp: {
+      enabled: true,
+    },
+    CapacitorCookies: {
+      enabled: true,
+    },
     // Twitter/Facebook/etc. aren't used — disabling them keeps them out of
     // the native builds entirely (smaller APK/IPA, fewer permissions).
     SocialLogin: {

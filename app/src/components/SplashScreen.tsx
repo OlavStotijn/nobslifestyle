@@ -24,16 +24,23 @@ export function SplashScreen({ ready, children }: { ready: boolean; children: Re
     };
   }, []);
 
+  // Separate from the effect below on purpose: that one flips phase to
+  // "fading" as a state update, which — if it also owned the "done" timer —
+  // would get its own timer torn down by the dependency-triggered re-run's
+  // cleanup before the timeout ever fired (phase changing is itself a
+  // dependency of that effect). Splitting them means this timer is set up
+  // in a render where phase has already settled on "fading", so nothing
+  // tears it down before it fires.
   useEffect(() => {
     if (phase !== "splash" || !ready || !minHoldElapsed) return;
-    if (reducedMotion) {
-      setPhase("done");
-      return;
-    }
-    setPhase("fading");
+    setPhase(reducedMotion ? "done" : "fading");
+  }, [ready, minHoldElapsed, phase]);
+
+  useEffect(() => {
+    if (phase !== "fading") return;
     const timer = setTimeout(() => setPhase("done"), FADE_OUT_MS);
     return () => clearTimeout(timer);
-  }, [ready, minHoldElapsed, phase]);
+  }, [phase]);
 
   if (phase === "done") return <>{children}</>;
 
