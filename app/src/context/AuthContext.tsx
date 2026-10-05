@@ -15,6 +15,10 @@ export interface User {
   restTimerSeconds: number;
   activeProgramId: number | null;
   emailVerified: boolean;
+  // Derived from a real persisted column (unlike isAdmin/hasPassword below),
+  // so reliable from every endpoint that returns a user, not just /auth/me.
+  isPro: boolean;
+  proUntil: string | null;
   // Only ever present (and only ever accurate) on the /auth/me response —
   // login/signup/profile-update responses don't resolve it, which is why
   // those flows call refresh() rather than trusting their own payload.

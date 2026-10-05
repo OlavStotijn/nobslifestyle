@@ -22,6 +22,11 @@ CREATE TABLE users (
   email_verified_at  TEXT,
   suspended_at       TEXT,
   last_seen_at       TEXT,
+  -- Basic/Pro entitlement: isPro = pro_until in the future. No separate
+  -- plan flag — a cancelled/lapsed subscription just lets this expire.
+  pro_until              TEXT,
+  mollie_customer_id     TEXT,
+  mollie_subscription_id TEXT,
   created_at         TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   updated_at         TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
@@ -46,6 +51,18 @@ CREATE TABLE email_verification_tokens (
   created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE INDEX idx_evt_user ON email_verification_tokens (user_id);
+
+-- Bridges the native app to a logged-in website checkout session without
+-- the user re-entering credentials in the external browser.
+CREATE TABLE checkout_tokens (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash  TEXT    NOT NULL UNIQUE,
+  expires_at  TEXT    NOT NULL,
+  used_at     TEXT,
+  created_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX idx_checkout_tokens_user ON checkout_tokens (user_id);
 
 -- ============================================================
 -- Nutrition profile (Phase 1)

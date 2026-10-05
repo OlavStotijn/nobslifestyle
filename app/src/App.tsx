@@ -23,6 +23,9 @@ import { FriendProfilePage } from "./routes/FriendProfilePage";
 import { FeedPage } from "./routes/FeedPage";
 import { ProfilePage } from "./routes/ProfilePage";
 import { SettingsPage } from "./routes/SettingsPage";
+import { PlanPage } from "./routes/PlanPage";
+import { UpgradePage } from "./routes/UpgradePage";
+import { UpgradeCompletePage } from "./routes/UpgradeCompletePage";
 import { AddProgressPhotoPage } from "./routes/AddProgressPhotoPage";
 import { PersonalRecordsPage } from "./routes/PersonalRecordsPage";
 import { ProgramsPage } from "./routes/ProgramsPage";
@@ -51,6 +54,8 @@ export default function App() {
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />
         <Route path="/home" element={<HomePage />} />
+        <Route path="/upgrade" element={<UpgradePage />} />
+        <Route path="/upgrade/complete" element={<UpgradeCompletePage />} />
         <Route path="/" element={<RootPage />} />
 
         <Route element={<ProtectedRoute />}>
@@ -68,6 +73,7 @@ export default function App() {
           <Route path="/friends/add" element={<AddFriendPage />} />
           <Route path="/friends/:id" element={<FriendProfilePage />} />
           <Route path="/profile/settings" element={<SettingsPage />} />
+          <Route path="/profile/plan" element={<PlanPage />} />
           <Route path="/profile/progress-photos/add" element={<AddProgressPhotoPage />} />
           <Route path="/progress/prs" element={<PersonalRecordsPage />} />
           <Route path="/programs" element={<ProgramsPage />} />

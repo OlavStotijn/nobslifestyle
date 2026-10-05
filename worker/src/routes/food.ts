@@ -26,7 +26,10 @@ import { getNutritionProfile } from "../lib/nutritionProfile";
 import { localDateInTz, startOfWeekInTz, type MealType } from "../lib/time";
 import { autoCompleteLinkedChecklistItems } from "../lib/checklist";
 import { extractNutritionFromLabel } from "../lib/ocr";
+import { scanMealPhoto } from "../lib/mealScan";
 import { isImageAppropriate } from "../lib/contentModeration";
+import { requirePro } from "../middleware/requirePro";
+import { tooManyAttempts, hit } from "../lib/rateLimit";
 import { getBurnedKcalForDate } from "../lib/cardioSessions";
 import {
   createSavedMeal,
@@ -102,6 +105,38 @@ foodRoute.post("/api/food/ocr", async (c) => {
   await c.env.MEDIA.put(key, buffer, { httpMetadata: { contentType: file.type || "image/jpeg" } });
 
   return c.json({ result, imageR2Key: key });
+});
+
+const MAX_MEAL_SCAN_IMAGE_BYTES = 8 * 1024 * 1024;
+const MEAL_SCAN_DAILY_LIMIT = 10;
+
+// Pro-only: identifies multiple food items in a single plate photo (vs. the
+// one-item-at-a-time nutrition-label OCR above). Read-only on the DB, same
+// as /api/food/ocr — the frontend review step persists items itself after
+// the user edits them.
+foodRoute.post("/api/food/scan-meal", requirePro, async (c) => {
+  const userId = c.get("userId");
+  if (await tooManyAttempts(c.env, "ai-meal-scan", String(userId), MEAL_SCAN_DAILY_LIMIT)) {
+    return c.json({ error: "You've reached today's limit for meal scans. Try again tomorrow." }, 429);
+  }
+
+  const form = await c.req.formData().catch(() => null);
+  const file = form?.get("image");
+  if (!(file instanceof File)) return c.json({ error: "An image file is required." }, 422);
+  if (file.size > MAX_MEAL_SCAN_IMAGE_BYTES) return c.json({ error: "Image is too large (max 8MB)." }, 422);
+
+  const buffer = await file.arrayBuffer();
+
+  let items;
+  try {
+    items = await scanMealPhoto(c.env, buffer, file.type);
+  } catch (err) {
+    console.error("Meal scan failed", err);
+    return c.json({ error: "Couldn't read that photo. Try a clearer shot or add items manually." }, 422);
+  }
+  await hit(c.env, "ai-meal-scan", String(userId), 24 * 60 * 60 * 1000);
+
+  return c.json({ items });
 });
 
 const MAX_FOOD_IMAGE_BYTES = 8 * 1024 * 1024;

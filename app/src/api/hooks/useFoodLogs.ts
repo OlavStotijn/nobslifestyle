@@ -135,6 +135,27 @@ export function useScanLabel() {
   });
 }
 
+export interface MealScanItem {
+  name: string;
+  estimatedGrams: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+// Pro-only. Identifies multiple food items in one plate photo, unlike
+// useScanLabel (one nutrition label -> one item).
+export function useScanMeal() {
+  return useMutation({
+    mutationFn: (photo: Blob) => {
+      const form = new FormData();
+      form.append("image", photo, "meal.jpg");
+      return api.postForm<{ items: MealScanItem[] }>("/food/scan-meal", form).then((r) => r.items);
+    },
+  });
+}
+
 export function useUploadFoodImage() {
   return useMutation({
     mutationFn: (photo: Blob) => {

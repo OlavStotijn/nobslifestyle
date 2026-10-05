@@ -19,6 +19,9 @@ export interface UserRow {
   email_verified_at: string | null;
   suspended_at: string | null;
   last_seen_at: string | null;
+  pro_until: string | null;
+  mollie_customer_id: string | null;
+  mollie_subscription_id: string | null;
   created_at: string;
 }
 
@@ -37,6 +40,10 @@ export function publicUser(u: UserRow) {
     restTimerSeconds: u.rest_timer_seconds,
     activeProgramId: u.active_program_id,
     emailVerified: u.email_verified_at !== null,
+    // Derived from pro_until, not a separate stored flag — a cancelled or
+    // failed-to-renew subscription just lets this lapse on its own.
+    isPro: u.pro_until !== null && u.pro_until > new Date().toISOString(),
+    proUntil: u.pro_until,
   };
 }
 

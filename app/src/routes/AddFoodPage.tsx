@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
 import {
   useAddFavoriteFood,
@@ -13,13 +13,16 @@ import {
   useRemoveFavoriteFood,
   useSavedMeals,
   useScanLabel,
+  useScanMeal,
   useSearchFood,
   useUploadFoodImage,
   todayLocalDate,
   type FoodItem,
   type FoodLogSource,
+  type MealScanItem,
   type OcrResult,
 } from "../api/hooks/useFoodLogs";
+import { useAuth } from "../context/AuthContext";
 import { CameraCapture } from "../components/CameraCapture";
 import { FoodThumb } from "../components/FoodThumb";
 import { useDebounced } from "../hooks/useDebounced";
@@ -29,7 +32,7 @@ import { amountPresets } from "../lib/foodAmounts";
 // lazy-loaded instead of bloating every page's initial bundle.
 const BarcodeScanner = lazy(() => import("../components/BarcodeScanner").then((m) => ({ default: m.BarcodeScanner })));
 
-type Tab = "quick" | "search" | "scan" | "photo" | "custom";
+type Tab = "quick" | "search" | "scan" | "photo" | "meal" | "custom";
 
 function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   const tabs: { key: Tab; label: string }[] = [
@@ -37,6 +40,7 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
     { key: "quick", label: "Quick" },
     { key: "scan", label: "Scan" },
     { key: "photo", label: "Photo" },
+    { key: "meal", label: "AI Meal" },
     { key: "custom", label: "Custom" },
   ];
   return (
@@ -402,6 +406,155 @@ function NutrientField({ label, value, onChange }: { label: string; value: strin
   );
 }
 
+interface EditableMealItem extends MealScanItem {
+  key: number;
+}
+
+function MealScanReviewStep({ items, onBack, onAdded }: { items: MealScanItem[]; onBack: () => void; onAdded: () => void }) {
+  const date = todayLocalDate();
+  const [rows, setRows] = useState<EditableMealItem[]>(items.map((item, i) => ({ ...item, key: i })));
+  const [error, setError] = useState<string | null>(null);
+  const createItem = useCreateFoodItem();
+  const createLog = useCreateFoodLog(date);
+  const [saving, setSaving] = useState(false);
+
+  function updateRow(key: number, patch: Partial<EditableMealItem>) {
+    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  }
+
+  function removeRow(key: number) {
+    setRows((prev) => prev.filter((r) => r.key !== key));
+  }
+
+  async function addAll() {
+    if (rows.length === 0) {
+      setError("No items left to add.");
+      return;
+    }
+    setError(null);
+    setSaving(true);
+    try {
+      for (const row of rows) {
+        const grams = row.estimatedGrams > 0 ? row.estimatedGrams : 100;
+        const factor = 100 / grams;
+        const item = await createItem.mutateAsync({
+          name: row.name,
+          caloriesPer100g: row.calories * factor,
+          proteinPer100g: row.protein * factor,
+          carbsPer100g: row.carbs * factor,
+          fatPer100g: row.fat * factor,
+          source: "ocr",
+        });
+        await createLog.mutateAsync({ foodItemId: item.id, quantityG: grams, source: "photo_ocr" });
+      }
+      onAdded();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong adding one of these items.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-1 flex-col overflow-y-auto pb-6">
+      <button type="button" onClick={onBack} className="self-start text-sm text-ink-muted">
+        ← Retake photo
+      </button>
+
+      <h1 className="mt-4 text-xl font-bold text-ink">Check what we found</h1>
+      <p className="text-sm text-ink-muted">Estimates aren't perfect — fix quantities or remove anything wrong.</p>
+
+      <div className="mt-4 flex flex-col gap-4">
+        {rows.length === 0 && <p className="text-ink-muted">Nothing left — go back to retake the photo.</p>}
+        {rows.map((row) => (
+          <div key={row.key} className="rounded-xl border border-border bg-surface p-4">
+            <div className="flex items-start justify-between gap-2">
+              <input
+                value={row.name}
+                onChange={(e) => updateRow(row.key, { name: e.target.value })}
+                className="flex-1 rounded-lg border border-border bg-bg px-3 py-2 font-medium text-ink outline-none focus:border-accent"
+              />
+              <button
+                type="button"
+                onClick={() => removeRow(row.key)}
+                aria-label="Remove item"
+                className="shrink-0 px-2 text-lg text-ink-muted"
+              >
+                ×
+              </button>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <NutrientField label="Grams" value={String(row.estimatedGrams)} onChange={(v) => updateRow(row.key, { estimatedGrams: Number(v) || 0 })} />
+              <NutrientField label="Calories" value={String(row.calories)} onChange={(v) => updateRow(row.key, { calories: Number(v) || 0 })} />
+              <NutrientField label="Protein (g)" value={String(row.protein)} onChange={(v) => updateRow(row.key, { protein: Number(v) || 0 })} />
+              <NutrientField label="Carbs (g)" value={String(row.carbs)} onChange={(v) => updateRow(row.key, { carbs: Number(v) || 0 })} />
+            </div>
+          </div>
+        ))}
+
+        {error && <p className="text-sm text-red-500">{error}</p>}
+
+        <button
+          type="button"
+          onClick={addAll}
+          disabled={saving || rows.length === 0}
+          className="mt-2 rounded-xl bg-accent px-4 py-3 font-semibold text-white transition-opacity disabled:opacity-50"
+        >
+          {saving ? "Adding…" : `Add all ${rows.length} to diary`}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MealTab({ onScanned }: { onScanned: (items: MealScanItem[]) => void }) {
+  const { user } = useAuth();
+  const scan = useScanMeal();
+  const [error, setError] = useState<string | null>(null);
+
+  if (user?.isPro !== true) {
+    return (
+      <div className="mt-6 flex flex-1 flex-col items-center gap-3 text-center">
+        <p className="text-2xl">✨</p>
+        <h2 className="text-lg font-bold text-ink">AI meal scan is a Pro feature</h2>
+        <p className="text-sm text-ink-muted">
+          Snap a photo of a whole plate and let AI identify every item and estimate its macros — no more logging each
+          ingredient by hand.
+        </p>
+        <Link to="/profile/plan" className="mt-2 rounded-xl bg-accent px-4 py-3 font-semibold text-white">
+          See Pro features
+        </Link>
+      </div>
+    );
+  }
+
+  async function handleCapture(blob: Blob) {
+    setError(null);
+    try {
+      const items = await scan.mutateAsync(blob);
+      if (items.length === 0) {
+        setError("Couldn't identify any food in that photo. Try a clearer shot.");
+        return;
+      }
+      onScanned(items);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong.");
+    }
+  }
+
+  if (scan.isPending) {
+    return <p className="mt-6 text-center text-ink-muted">Looking at your plate…</p>;
+  }
+
+  return (
+    <div className="mt-4 flex flex-1 flex-col gap-3">
+      <CameraCapture onCapture={handleCapture} />
+      <p className="text-center text-sm text-ink-muted">Fit the whole plate in frame, then take the photo.</p>
+      {error && <p className="text-center text-sm text-red-500">{error}</p>}
+    </div>
+  );
+}
+
 function CustomFoodTab({ onCreated }: { onCreated: (item: FoodItem) => void }) {
   const [name, setName] = useState("");
   const [brand, setBrand] = useState("");
@@ -677,6 +830,7 @@ export function AddFoodPage() {
   const [tab, setTab] = useState<Tab>("search");
   const [selected, setSelected] = useState<{ item: FoodItem; source: FoodLogSource } | null>(null);
   const [ocrPending, setOcrPending] = useState<{ result: OcrResult; imageR2Key: string } | null>(null);
+  const [mealScanPending, setMealScanPending] = useState<MealScanItem[] | null>(null);
 
   if (selected) {
     return (
@@ -704,6 +858,14 @@ export function AddFoodPage() {
     );
   }
 
+  if (mealScanPending) {
+    return (
+      <div className="flex min-h-full flex-col bg-bg px-6 py-8">
+        <MealScanReviewStep items={mealScanPending} onBack={() => setMealScanPending(null)} onAdded={() => navigate("/food")} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-full flex-col bg-bg px-6 py-8">
       <button type="button" onClick={() => navigate("/food")} className="self-start text-sm text-ink-muted">
@@ -720,6 +882,7 @@ export function AddFoodPage() {
       {tab === "search" && <SearchTab onSelect={(item) => setSelected({ item, source: "search" })} />}
       {tab === "scan" && <ScanTab onSelect={(item) => setSelected({ item, source: "barcode" })} />}
       {tab === "photo" && <PhotoTab onExtracted={(result, imageR2Key) => setOcrPending({ result, imageR2Key })} />}
+      {tab === "meal" && <MealTab onScanned={setMealScanPending} />}
       {tab === "custom" && <CustomFoodTab onCreated={(item) => setSelected({ item, source: "manual" })} />}
     </div>
   );
