@@ -18,6 +18,17 @@ const config: CapacitorConfig = {
     CapacitorCookies: {
       enabled: true,
     },
+    // Lets the native app pick up frontend fixes without an App Store
+    // release — see app/src/liveUpdate.ts and app/scripts/build-update-bundle.mjs.
+    // autoUpdate is off: the plugin's built-in auto-update/getLatest() flow
+    // speaks Capgo's own cloud API protocol, which we're not using — a plain
+    // manifest + download()/next() is simpler and fully self-hosted.
+    // statsUrl is blanked so nothing gets reported to Capgo's cloud, which
+    // this app has no account with.
+    CapacitorUpdater: {
+      autoUpdate: false,
+      statsUrl: "",
+    },
     // Twitter/Facebook/etc. aren't used — disabling them keeps them out of
     // the native builds entirely (smaller APK/IPA, fewer permissions).
     SocialLogin: {

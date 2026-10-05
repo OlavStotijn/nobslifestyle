@@ -8,10 +8,12 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
-    "cap:sync": "npm run build && npx cap sync"
+    "cap:sync": "npm run build && npx cap sync",
+    "build:live-update": "node scripts/build-update-bundle.mjs"
   },
   "dependencies": {
     "@capgo/capacitor-social-login": "^8.5.11",
+    "@capgo/capacitor-updater": "^8.52.1",
     "@tanstack/react-query": "^5.62.0",
     "@zxing/browser": "^0.2.1",
     "@zxing/library": "^0.23.0",

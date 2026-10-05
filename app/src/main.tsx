@@ -6,7 +6,13 @@ import { Capacitor } from "@capacitor/core";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { I18nProvider } from "./i18n/I18nContext";
+import { checkForLiveUpdate } from "./liveUpdate";
 import "./index.css";
+
+// Fired before anything else — notifyAppReady() inside this (native-only,
+// no-ops on web) must run before any other network request, or the updater
+// plugin assumes this bundle failed to load and rolls back to the last one.
+checkForLiveUpdate();
 
 // Web only — the native app ships its assets locally and has nothing to
 // gain from a service worker, while WKWebView's storage persisting across
