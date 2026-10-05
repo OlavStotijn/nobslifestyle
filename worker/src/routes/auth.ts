@@ -26,7 +26,7 @@ import {
   APPLE_ISSUERS,
   type VerifiedIdToken,
 } from "../lib/oauth";
-import { findUserIdByOAuthIdentity, linkOAuthIdentity, type OAuthProvider } from "../lib/oauthIdentities";
+import { findUserIdByOAuthIdentity, linkOAuthIdentity, hasOAuthIdentity, type OAuthProvider } from "../lib/oauthIdentities";
 
 async function sendVerificationEmailBestEffort(env: Env, userId: number, email: string): Promise<void> {
   try {
@@ -275,7 +275,9 @@ authRoute.get("/api/auth/me", requireAuth, async (c) => {
     if (admin) impersonating = { adminUserId: admin.id, adminDisplayName: admin.display_name };
   }
 
-  return c.json({ user: { ...publicUser(user), isAdmin }, impersonating });
+  const hasPassword = !(await hasOAuthIdentity(c.env, user.id));
+
+  return c.json({ user: { ...publicUser(user), isAdmin, hasPassword }, impersonating });
 });
 
 interface ForgotPasswordBody {

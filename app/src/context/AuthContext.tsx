@@ -19,6 +19,9 @@ export interface User {
   // login/signup/profile-update responses don't resolve it, which is why
   // those flows call refresh() rather than trusting their own payload.
   isAdmin?: boolean;
+  // false for Google/Apple sign-in accounts, which have no password the
+  // owner could ever type — see completeOAuthSignIn on the worker.
+  hasPassword?: boolean;
 }
 
 export interface Impersonating {

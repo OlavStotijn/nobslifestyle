@@ -13,6 +13,15 @@ export async function findUserIdByOAuthIdentity(
   return row?.user_id ?? null;
 }
 
+// Google/Apple sign-in sets the user's password_hash to a random,
+// never-typeable placeholder (see completeOAuthSignIn in routes/auth.ts), so
+// those accounts can't use a "re-type your password" confirmation for
+// destructive actions — they need the text-confirmation fallback instead.
+export async function hasOAuthIdentity(env: Env, userId: number): Promise<boolean> {
+  const row = await env.DB.prepare("SELECT 1 FROM oauth_identities WHERE user_id = ? LIMIT 1").bind(userId).first();
+  return row != null;
+}
+
 export async function linkOAuthIdentity(
   env: Env,
   userId: number,

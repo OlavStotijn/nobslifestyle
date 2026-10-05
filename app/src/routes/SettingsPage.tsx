@@ -8,6 +8,7 @@ import { useTranslation } from "../i18n/I18nContext";
 import { LANGUAGE_LABELS, type LanguageCode } from "../i18n/translations";
 import type { LandingPage } from "../context/AuthContext";
 import { isPushSubscribed, subscribeToPush, unsubscribeFromPush } from "../api/hooks/useNotifications";
+import { ApiError } from "../api/client";
 
 const REST_TIMER_OPTIONS = [60, 90, 120, 180];
 
@@ -61,6 +62,7 @@ export function SettingsPage() {
   const deleteAccount = useDeleteAccount();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteText, setDeleteText] = useState("");
+  const [deletePassword, setDeletePassword] = useState("");
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
@@ -111,10 +113,10 @@ export function SettingsPage() {
   async function confirmDeleteAccount() {
     setDeleteError(null);
     try {
-      await deleteAccount.mutateAsync();
+      await deleteAccount.mutateAsync(user?.hasPassword === false ? { confirm: "DELETE" } : { password: deletePassword });
       setUser(null);
-    } catch {
-      setDeleteError("Couldn't delete your account. Please try again.");
+    } catch (err) {
+      setDeleteError(err instanceof ApiError ? err.message : "Couldn't delete your account. Please try again.");
     }
   }
 
@@ -260,22 +262,40 @@ export function SettingsPage() {
               This permanently deletes your account and all your data — workouts, food logs, photos, posts and friends. It
               can't be undone.
             </p>
-            <label className="text-sm text-ink-muted" htmlFor="delete-confirm">
-              Type DELETE to confirm
-            </label>
-            <input
-              id="delete-confirm"
-              value={deleteText}
-              onChange={(e) => setDeleteText(e.target.value)}
-              autoCapitalize="characters"
-              autoComplete="off"
-              className="rounded-lg border border-border bg-bg px-3 py-2 text-ink outline-none focus:border-red-500"
-            />
+            {user?.hasPassword === false ? (
+              <>
+                <label className="text-sm text-ink-muted" htmlFor="delete-confirm">
+                  Type DELETE to confirm
+                </label>
+                <input
+                  id="delete-confirm"
+                  value={deleteText}
+                  onChange={(e) => setDeleteText(e.target.value)}
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  className="rounded-lg border border-border bg-bg px-3 py-2 text-ink outline-none focus:border-red-500"
+                />
+              </>
+            ) : (
+              <>
+                <label className="text-sm text-ink-muted" htmlFor="delete-password">
+                  Enter your password to confirm
+                </label>
+                <input
+                  id="delete-password"
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  autoComplete="current-password"
+                  className="rounded-lg border border-border bg-bg px-3 py-2 text-ink outline-none focus:border-red-500"
+                />
+              </>
+            )}
             {deleteError && <p className="text-sm text-red-500">{deleteError}</p>}
             <button
               type="button"
               onClick={confirmDeleteAccount}
-              disabled={deleteText !== "DELETE" || deleteAccount.isPending}
+              disabled={(user?.hasPassword === false ? deleteText !== "DELETE" : deletePassword === "") || deleteAccount.isPending}
               className="rounded-xl bg-red-500 px-4 py-3 font-semibold text-white disabled:opacity-50"
             >
               {deleteAccount.isPending ? "Deleting…" : "Permanently delete account"}
@@ -285,6 +305,7 @@ export function SettingsPage() {
               onClick={() => {
                 setConfirmingDelete(false);
                 setDeleteText("");
+                setDeletePassword("");
                 setDeleteError(null);
               }}
               className="px-4 py-2 text-sm text-ink-muted"

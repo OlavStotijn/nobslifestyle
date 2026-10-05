@@ -13,6 +13,9 @@ import {
   type ReportTargetType,
 } from "../lib/safety";
 import { clearSessionCookie } from "../lib/session";
+import { getUserById } from "../lib/users";
+import { hasOAuthIdentity } from "../lib/oauthIdentities";
+import { verifyPassword } from "../lib/passwordHash";
 
 export const safetyRoute = new Hono<{ Bindings: Env; Variables: AuthVariables }>();
 
@@ -62,17 +65,33 @@ safetyRoute.post("/api/reports", async (c) => {
 });
 
 interface DeleteAccountBody {
+  password: string;
   confirm: string;
 }
 
-// Self-service account deletion (App Store guideline 5.1.1(v)).
+// Self-service account deletion (App Store guideline 5.1.1(v)). Accounts
+// with a real password re-confirm with it; Google/Apple sign-in accounts
+// have no password the owner could ever type (it's set to a random
+// placeholder — see completeOAuthSignIn), so they fall back to typing
+// "DELETE" instead.
 safetyRoute.delete("/api/account", async (c) => {
   if (c.get("impersonatedBy")) return c.json({ error: "Not available while impersonating." }, 403);
 
-  const body = await c.req.json<Partial<DeleteAccountBody>>().catch(() => null);
-  if (body?.confirm !== "DELETE") return c.json({ error: 'Type "DELETE" to confirm.' }, 422);
+  const userId = c.get("userId");
+  const user = await getUserById(c.env, userId);
+  if (!user) return c.json({ error: "Not found." }, 404);
 
-  await deleteOwnAccount(c.env, c.get("userId"));
+  const body = await c.req.json<Partial<DeleteAccountBody>>().catch(() => null);
+
+  if (await hasOAuthIdentity(c.env, userId)) {
+    if (body?.confirm !== "DELETE") return c.json({ error: 'Type "DELETE" to confirm.' }, 422);
+  } else {
+    if (!body?.password || !verifyPassword(body.password, user.password_hash)) {
+      return c.json({ error: "Incorrect password." }, 422);
+    }
+  }
+
+  await deleteOwnAccount(c.env, userId);
   c.header("Set-Cookie", clearSessionCookie(c.env));
   return c.json({ ok: true });
 });

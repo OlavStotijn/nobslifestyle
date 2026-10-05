@@ -45,6 +45,6 @@ export function useReport() {
 
 export function useDeleteAccount() {
   return useMutation({
-    mutationFn: () => api.delete("/account", { confirm: "DELETE" }),
+    mutationFn: (payload: { password: string } | { confirm: "DELETE" }) => api.delete("/account", payload),
   });
 }
