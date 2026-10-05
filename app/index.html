@@ -7,6 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="NoBS" />
+    <meta name="google-site-verification" content="2aOwCm46T3HG5ozdr7JYPBTZCJBEfR_KyrUSqQiRFuw" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg" />
     <title>NoBSLifestyle</title>
@@ -16,8 +17,7 @@
       // here and keeps this class + the meta tag above in sync afterwards.
       (function () {
         var stored = localStorage.getItem("nobs-theme");
-        var isDark = stored ? stored === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
-        if (isDark) document.documentElement.classList.add("dark");
+        if (stored !== "light") document.documentElement.classList.add("dark");
       })();
     </script>
   </head>
